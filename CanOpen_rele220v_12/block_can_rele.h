@@ -62,27 +62,22 @@ extern "C" {
 #define OD_NULL 0
 /*function*/
 #define OD_DOMAIN 2
+/*massiv  sub-index uint8_t and */
+#define OD_RECORD 9
 // for OD_table .... .data
 void (*OD_function)(void*,void*);
 	
-/**/
-#define OD_DEFTYPE 5
-	
-/*struct example  21 PDO mapping*/
-#define OD_DEFSTRUCT 6
-	
+#define OD_DEFTYPE 5	
+/*struct example  020..23 PDO mapping*/
+#define OD_DEFSTRUCT 6	
 /*single uint8 ...32, boolean*/
-#define OD_VAR 7
-	
-/*massiv  sub-index uint8_t, (u16 or u32) */
+#define OD_VAR 7	
+/*massiv  sub-index uint8_t, (u8,u16 or u32) */
 #define OD_ARRAY 8
 struct OD_array_n{	
 uint8_t sub_index;
 void *	  value;
 };	
-
-/*massiv  sub-index uint8_t and */
-#define OD_RECORD 9	
 
 union OD_data {
 uint8_t     u8;
@@ -100,18 +95,16 @@ uint8_t      object;
 uint8_t	type;
 //union OD_data value;
 void*	data;
-uint8_t	attr;
-//struct OD_table *next;
-//struct OD_table *prev;
-};
-/*
-attr
+/*attr
 #define RW - Read and write access
 #define WO- Write only
 #define RO - Read only
 #define CONST- Read only, Data is constant
- 
  */
+uint8_t	attr;
+//struct OD_table *next;
+//struct OD_table *prev;
+};
 
 uint32_t (*OD_function32)(struct OD_table *tab,uCAN_MSG *msg);	
 //receive 1600h & transmit 1A00h
@@ -163,9 +156,7 @@ uint32_t	serial_number;
         if(data&0b010000000000){Rele11_LAT = 1;}else{Rele11_LAT = 0;};
         if(data&0b100000000000){Rele12_LAT = 1;}else{Rele12_LAT = 0;};
  };	
- 
 // read  address (Node_ID)   74h165 
- 
 uint8_t Read_addr_CAN(){
    uint8_t addr = 0;
    uint8_t bit_addr =0;
@@ -479,7 +470,7 @@ return (tab+cycle);
 #define ERORR_sub_index	0x06090011
 #define ERORR_no_object	0x06020000
 #define ERORR_no_open              0x06010000
-#define ERRR_ALL_OD_table	0x08000000
+#define ERRR_ALL_OD_table	 0x08000000
 
 void OD_read_data(struct OD_table *tab,uCAN_MSG *msg){
 
@@ -487,16 +478,17 @@ struct OD_array_n	*arr;
 struct PDO_mapping	*pdo_map;
 struct PDO_comm	*pdo_com;
 struct SDO_comm	*sdo_com;
-struct OD_identity	*inden;
+struct OD_identity	*indent;
 uint8_t 
 command  =  ERORR_OD_read,
-sub_index = msg->frame.data3,
-od_type = tab->type,
-od_object = tab->object;
+sub_index	= msg->frame.data3,
+od_type	= tab->type,
+od_object	= tab->object;
 
 uint32_t dump = 0;
 
 //tomorrow change
+//if(tab->attr==0){};
 
 switch (od_object){
 	
@@ -520,9 +512,9 @@ switch (od_object){
 	   if(!sub_index){sub_index --;}else{dump += arr->sub_index;OK_OD_read8}
 	   
 		switch(od_type){
-		case UNSIGNED8:  dump += *(((uint8_t*)(arr->value))+(sub_index));  OK_OD_read8
-		case UNSIGNED16:dump +=*(((uint16_t *)(arr->value))+(sub_index));OK_OD_read16
-		case UNSIGNED32:dump = *(((uint32_t *)(arr->value))+(sub_index));  OK_OD_read32
+		case UNSIGNED8:  dump += *(((uint8_t*)arr->value)+(sub_index));OK_OD_read8
+		case UNSIGNED16:dump += *(((uint16_t*)arr->value)+(sub_index));OK_OD_read16
+		case UNSIGNED32:dump = *(((uint32_t *)arr->value)+(sub_index));OK_OD_read32
 		default: dump = ERORR_no_object; break;
 		};
 	break;
@@ -554,10 +546,10 @@ switch (od_object){
 		   if (sdo_com->sub_index < sub_index) {dump=ERORR_sub_index;break;};
 		   
 		   	switch(sub_index){
-			case 0: dump += sdo_com->sub_index;	OK_OD_read8
-			case 1: dump = sdo_com->cob_id_client;	OK_OD_read32	
-			case 2: dump = sdo_com->cob_id_server;	OK_OD_read32
-			case 3: dump += sdo_com->node_id;	OK_OD_read8
+			case 0: dump += sdo_com->sub_index;OK_OD_read8
+			case 1: dump = sdo_com->cob_id_client;OK_OD_read32	
+			case 2: dump = sdo_com->cob_id_server;OK_OD_read32
+			case 3: dump += sdo_com->node_id;OK_OD_read8
 			default:dump = ERORR_no_object; break;
 			}; 
 		break;
@@ -573,16 +565,16 @@ switch (od_object){
 
 		case  IDENTITY:
 		
-		    inden = (struct OD_identity*) tab->data;
+		    indent = (struct OD_identity*) tab->data;
 		    
 		    if (sdo_com->sub_index < sub_index) {dump=ERORR_sub_index;break;};
 		   
 		   	switch(sub_index){
-			case 0: dump += inden->sub_index;	OK_OD_read8
-			case 1: dump = inden->vendor_id;	OK_OD_read32	
-			case 2: dump = inden->product_number;	OK_OD_read32
-			case 3: dump = inden->revision_number;	OK_OD_read32
-			case 4: dump = inden->serial_number;	OK_OD_read32	
+			case 0: dump += indent->sub_index;	OK_OD_read8
+			case 1: dump = indent->vendor_id;	OK_OD_read32	
+			case 2: dump = indent->product_number;	OK_OD_read32
+			case 3: dump = indent->revision_number;	OK_OD_read32
+			case 4: dump = indent->serial_number;	OK_OD_read32	
 			default:dump = ERORR_no_object; break;
 			}; 
 		break;
@@ -599,17 +591,17 @@ switch (od_object){
 		
 	if(tab->data == NULL){dump = ERORR_no_object; break;}
 		
-	OD_function = tab->data;		
+	OD_function32 = tab->data;		
 	dump = OD_function32(tab,msg);
 	command = msg->frame.data0;	
 	break;
 			
 	
 	case OD_NULL:
-	command = 0x4f;	
+	dump = ERORR_no_open;	
 	break;
 		
-	default: dump = ERORR_no_open;
+	default: dump = ERORR_no_object;
 	break;
 	
 	};
@@ -619,8 +611,13 @@ msg->frame.data4 = dump&0xff;
 msg->frame.data5 = (dump&0xff00) >>8;
 msg->frame.data6 = (dump&0xff0000)>>16;
 msg->frame.data7 = (dump&0xff000000)>>24;
-msg->frame.dlc = 8;
-CAN_transmit(msg);
+
+if (command == 0x60){msg->frame.dlc = 4;
+}else{msg->frame.dlc = 8;}
+
+while(1){
+if (CAN_transmit(msg)) break;
+};
 
 };
 
@@ -681,6 +678,8 @@ case OD_save_u32:
 default:od_type2  = 0;
 break;}
 
+// tomorrow change
+// if(tab->attr == od_write){}else{}
 
 switch (od_object){
 	
@@ -767,9 +766,10 @@ switch (od_object){
 		    if (pdo_map->sub_index < sub_index) {dump=ERORR_sub_index;break;};
 		    if (!sub_index){sub_index--;}else{dump = ERORR_sub_index;break;};
 		    if (od_type2 == UNSIGNED32){
-		         *(((uint32_t *)(pdo_map->object))+(sub_index))=data32; OK_OD_save};
-		        dump =ERORR_no_correct_data;break;
-			
+			    
+		         *(((uint32_t *)pdo_map->object)+(sub_index))=data32; OK_OD_save};
+		        
+		    dump =ERORR_no_correct_data;break;
 			
 		case  IDENTITY:
 		
@@ -778,15 +778,16 @@ switch (od_object){
 		    if (sdo_com->sub_index < sub_index) {dump=ERORR_sub_index;break;};
 		    if (sub_index == 0) dump= ERORR_no_save;break;
 		    if (od_type2 == UNSIGNED32){
+			    
 			switch(sub_index){
-			case 1: ident->vendor_id = data32;	OK_OD_save	
-			case 2: ident->product_number = data32;	OK_OD_save
-			case 3: ident->revision_number = data32;	OK_OD_save
-			case 4: ident->serial_number = data32;	OK_OD_save	
+			case 1: ident->vendor_id = data32;OK_OD_save	
+			case 2: ident->product_number = data32;OK_OD_save
+			case 3: ident->revision_number = data32;OK_OD_save
+			case 4: ident->serial_number = data32;OK_OD_save	
 			default:dump = ERORR_no_object; break;
 			};
-		    };
-		        dump =ERORR_no_correct_data;  break;
+		        break;}
+		    dump =ERORR_no_correct_data;  break;
 			
 		default:  
 		dump = ERORR_no_object; 
@@ -800,7 +801,7 @@ switch (od_object){
 		
 	if(tab->data == NULL){dump = ERORR_no_object; break;}
 		
-	OD_function = tab->data;		
+	OD_function32 = tab->data;		
 	dump = OD_function32(tab,msg);
 	command = msg->frame.data0;	
 	break;
