@@ -535,7 +535,7 @@ switch (od_object){
 			
 		   pdo_com = (struct PDO_comm *) tab->data;
 		   
-		   if (pdo_com->sub_index < sub_index) {ERORR_sub_index;break;};
+		   if (pdo_com->sub_index < sub_index) {dump=ERORR_sub_index;break;};
 
 			switch(sub_index){
 			case 0: dump += pdo_com->sub_index; OK_OD_read8
@@ -551,7 +551,7 @@ switch (od_object){
 			
 		   sdo_com = (struct SDO_comm *) tab->data;
 		   
-		   if (sdo_com->sub_index < sub_index) {ERORR_sub_index;break;};
+		   if (sdo_com->sub_index < sub_index) {dump=ERORR_sub_index;break;};
 		   
 		   	switch(sub_index){
 			case 0: dump += sdo_com->sub_index;	OK_OD_read8
@@ -566,7 +566,7 @@ switch (od_object){
 
 		    pdo_map = (struct PDO_mapping *) tab->data;
 		    
-		    if (pdo_map->sub_index < sub_index) {ERORR_sub_index;break;};
+		    if (pdo_map->sub_index < sub_index) {dump=ERORR_sub_index;break;};
 		    if (!sub_index){sub_index--;}else{dump += pdo_map->sub_index;OK_OD_read8};
 		    
 		    dump =*(((uint32_t *)(pdo_map->object))+(sub_index)); OK_OD_read32
@@ -575,7 +575,7 @@ switch (od_object){
 		
 		    inden = (struct OD_identity*) tab->data;
 		    
-		    if (sdo_com->sub_index < sub_index) {ERORR_sub_index;break;};
+		    if (sdo_com->sub_index < sub_index) {dump=ERORR_sub_index;break;};
 		   
 		   	switch(sub_index){
 			case 0: dump += inden->sub_index;	OK_OD_read8
@@ -628,10 +628,10 @@ CAN_transmit(msg);
 #define OD_save_u8		0x2F
 #define OD_save_u16		0x2B
 #define OD_save_u32		0x23
-#define OK_OD_save		0x60
+#define OK_OD_save	command  = 0x60; break;
 
-#define ERORR_no_save	06010002
-#define ERORR_no_correct_data	06090031
+#define ERORR_no_save	0x06010002
+#define ERORR_no_correct_data	0x06090031
 #define ERORR_command	0x80
 
 void OD_save_data(struct OD_table *tab,uCAN_MSG *msg){
@@ -640,7 +640,7 @@ struct OD_array_n	*arr;
 struct PDO_mapping	*pdo_map;
 struct PDO_comm	*pdo_com;
 struct SDO_comm	*sdo_com;
-struct OD_identity	*inden;
+struct OD_identity	*ident;
 uint8_t 
 command  =   ERORR_command,
 sub_index = msg->frame.data3,
@@ -691,62 +691,72 @@ switch (od_object){
 		
 		switch(od_type){
 		case _BOOLEAN:   
-		case UNSIGNED8:*((uint8_t *)(tab->data)) =data8; 
-		case UNSIGNED16: *((uint16_t *)(tab->data)) = data16;	
-		case UNSIGNED32: *((uint32_t *)(tab->data)) = data32;
+		case UNSIGNED8:   *((uint8_t *)(tab->data)) =data8; OK_OD_save
+		case UNSIGNED16: *((uint16_t *)(tab->data)) = data16;OK_OD_save	
+		case UNSIGNED32: *((uint32_t *)(tab->data)) = data32;OK_OD_save
 		default:  dump = ERORR_no_correct_data;break;
-		};		
+		};
+		
 	    }else{dump=ERORR_no_correct_data;}
 				
 	break;
-/*
+	
 	case OD_ARRAY:
 		
 	   arr = (struct OD_array_n *)(tab->data);	
 	   
-	   if(arr->sub_index < sub_index ){dump = ERORR_sub_index; break;};
-	   if(!sub_index){sub_index --;}else{dump += arr->sub_index;OK_OD_read8}
+	   if(arr->sub_index < sub_index ){dump = ERORR_sub_index;break;}
+	   if(!sub_index){sub_index --;}else{dump= ERORR_no_save;break;}
 	   
-		switch(tab->object){
-		case UNSIGNED8:  dump += *(((uint8_t*)(arr->value))+(sub_index));  OK_OD_read8
-		case UNSIGNED16:dump +=*(((uint16_t *)(arr->value))+(sub_index));OK_OD_read16
-		case UNSIGNED32:dump = *(((uint32_t *)(arr->value))+(sub_index));  OK_OD_read32
-		default: dump = ERORR_no_object; break;
-		};
+	          if(od_type == od_type2){		  
+		switch(od_type){
+		case UNSIGNED8:  *(((uint8_t*)(arr->value))+(sub_index))=data8; OK_OD_save
+		case UNSIGNED16:*(((uint16_t *)(arr->value))+(sub_index))=data16;OK_OD_save
+		case UNSIGNED32:*(((uint32_t *)(arr->value))+(sub_index))=data32;OK_OD_save
+		default: dump = ERORR_no_correct_data; 
+		break;};
+	           }else{dump=ERORR_no_correct_data;}
+	   
 	break;
 	
 	case OD_DEFSTRUCT:
 		
-		switch(tab->object){
+		switch(od_type){
 		
 		case PDO_COMM:
 			
-		   pdo_com = (struct PDO_comm *) tab->data;
-		   
-		   if (pdo_com->sub_index < sub_index) {ERORR_sub_index;break;};
-
-			switch(sub_index){
-			case 0: dump += pdo_com->sub_index; OK_OD_read8
-			case 1: dump    = pdo_com->cob_id; OK_OD_read32	
-			case 2: dump += pdo_com->Transmission_type; OK_OD_read8
-			case 3: dump += pdo_com->Inhibit_time;OK_OD_read16
-			case 5: dump += pdo_com->event_timer;OK_OD_read16
-			default:  dump = ERORR_no_object; break;
+		   pdo_com = (struct PDO_comm *) tab->data;		   
+		   if (pdo_com->sub_index < sub_index) {dump=ERORR_sub_index;break;};
+		    
+		       switch(sub_index){
+			       
+		          case 0: dump= ERORR_no_save;break;			  
+		          case 1: if(od_type2== UNSIGNED32){pdo_com->cob_id = data32;OK_OD_save};
+			    dump =ERORR_no_correct_data;break;
+		          case 2: if(od_type2 == UNSIGNED8){pdo_com->Transmission_type = data8;OK_OD_save};
+			    dump =ERORR_no_correct_data;break;
+		          case 3: if(od_type2 == UNSIGNED16){pdo_com->Inhibit_time = data16;OK_OD_save};
+			    dump =ERORR_no_correct_data;break;
+		          case 5:  if(od_type2 == UNSIGNED16){pdo_com->event_timer = data16;OK_OD_save}
+			    dump =ERORR_no_correct_data;break;
+		          default:  dump = ERORR_no_object; break;
 			}; 
 		break;	
 		
 		case SDO_PARAMETER:
 			
-		   sdo_com = (struct SDO_comm *) tab->data;
+		   sdo_com = (struct SDO_comm *) tab->data;		   
+		   if (sdo_com->sub_index < sub_index) {dump=ERORR_sub_index;break;};
 		   
-		   if (sdo_com->sub_index < sub_index) {ERORR_sub_index;break;};
-		   
-		   	switch(sub_index){
-			case 0: dump += sdo_com->sub_index;	OK_OD_read8
-			case 1: dump = sdo_com->cob_id_client;	OK_OD_read32	
-			case 2: dump = sdo_com->cob_id_server;	OK_OD_read32
-			case 3: dump += sdo_com->node_id;	OK_OD_read8
-			default:dump = ERORR_no_object; break;
+		           switch(sub_index){
+		               case 0: dump= ERORR_no_save;break;				
+		               case 1: if(od_type2== UNSIGNED32){sdo_com->cob_id_client=data32;OK_OD_save};
+			         dump =ERORR_no_correct_data;break;
+		               case 2: if(od_type2== UNSIGNED32){sdo_com->cob_id_server=data32;OK_OD_save};
+			         dump =ERORR_no_correct_data;break;
+		               case 3: if(od_type2 == UNSIGNED8){sdo_com->node_id = data8;OK_OD_save};
+			         dump =ERORR_no_correct_data;break;
+		               default:dump = ERORR_no_object; break;
 			}; 
 		break;
 		
@@ -754,25 +764,29 @@ switch (od_object){
 
 		    pdo_map = (struct PDO_mapping *) tab->data;
 		    
-		    if (pdo_map->sub_index < sub_index) {ERORR_sub_index;break;};
-		    if (!sub_index){sub_index--;}else{dump += pdo_map->sub_index;OK_OD_read8};
-		    
-		    dump =*(((uint32_t *)(pdo_map->object))+(sub_index)); OK_OD_read32
-
+		    if (pdo_map->sub_index < sub_index) {dump=ERORR_sub_index;break;};
+		    if (!sub_index){sub_index--;}else{dump = ERORR_sub_index;break;};
+		    if (od_type2 == UNSIGNED32){
+		         *(((uint32_t *)(pdo_map->object))+(sub_index))=data32; OK_OD_save};
+		        dump =ERORR_no_correct_data;break;
+			
+			
 		case  IDENTITY:
 		
-		    inden = (struct OD_identity*) tab->data;
+		    ident = (struct OD_identity*) tab->data;
 		    
-		    if (sdo_com->sub_index < sub_index) {ERORR_sub_index;break;};
-		   
-		   	switch(sub_index){
-			case 0: dump += inden->sub_index;	OK_OD_read8
-			case 1: dump = inden->vendor_id;	OK_OD_read32	
-			case 2: dump = inden->product_number;	OK_OD_read32
-			case 3: dump = inden->revision_number;	OK_OD_read32
-			case 4: dump = inden->serial_number;	OK_OD_read32	
+		    if (sdo_com->sub_index < sub_index) {dump=ERORR_sub_index;break;};
+		    if (sub_index == 0) dump= ERORR_no_save;break;
+		    if (od_type2 == UNSIGNED32){
+			switch(sub_index){
+			case 1: ident->vendor_id = data32;	OK_OD_save	
+			case 2: ident->product_number = data32;	OK_OD_save
+			case 3: ident->revision_number = data32;	OK_OD_save
+			case 4: ident->serial_number = data32;	OK_OD_save	
 			default:dump = ERORR_no_object; break;
-			}; 
+			};
+		    };
+		        dump =ERORR_no_correct_data;  break;
 			
 		default:  
 		dump = ERORR_no_object; 
@@ -799,7 +813,7 @@ switch (od_object){
 	default: dump = ERORR_no_open;
 	break;
 	
-	*/};
+	};
 	
 msg->frame.data0 = command;
 msg->frame.data4 =  dump&0xff;
