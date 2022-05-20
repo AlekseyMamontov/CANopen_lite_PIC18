@@ -16,20 +16,20 @@ extern "C" {
 #endif
 
 	
-#define  SDO_Transmit 0x580
-#define  SDO_Receive 0x600
+#define  SDO_Transmit	0x580
+#define  SDO_Receive	0x600
 
-#define  PD1_Transmit 0x180
-#define  PD2_Transmit 0x280 
-#define  PD3_Transmit 0x380
-#define  PD4_Transmit 0x480 
+#define  PD1_Transmit	0x180
+#define  PD2_Transmit	0x280 
+#define  PD3_Transmit	0x380
+#define  PD4_Transmit	0x480 
 	
-#define  PD1_Receive 0x200
-#define  PD2_Receive 0x300
-#define  PD3_Receive 0x400
-#define  PD4_Receive	 0x500
+#define  PD1_Receive	0x200
+#define  PD2_Receive	0x300
+#define  PD3_Receive	0x400
+#define  PD4_Receive	0x500
 
-#define CAN_Emergency 0x80
+#define CAN_Emergency	0x80
 
 #define CanOpen_sync	0x80
 #define CanOpen_TimeStamp	0x100
@@ -48,7 +48,7 @@ extern "C" {
 #define Reset_Communication	0x82	
 	
 #define  STOPPED		0x04
-#define  OPERATIONAL	0x05
+#define  OPERATIONAL		0x05
 #define  PRE_OPERATIONAL	0x7F	
 
 #define _BOOLEAN	01	
