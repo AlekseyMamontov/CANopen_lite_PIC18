@@ -454,7 +454,7 @@ uint8_t CanOpen_receive(uCAN_MSG *tempCanMsg, uCAN_MSG *tempCanMsg1)
         tempCanMsg1->frame.data6 = RXB1D6;
         tempCanMsg1->frame.data7 = RXB1D7;
         RXB1CONbits.RXFUL = 0;
-        returnValue = 2;
+        returnValue += 2;
     }
     return (returnValue);
 }
