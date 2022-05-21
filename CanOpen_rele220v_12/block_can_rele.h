@@ -492,10 +492,10 @@ struct PDO_comm	*pdo_com;
 struct SDO_comm	*sdo_com;
 struct OD_identity	*indent;
 uint8_t 
-command  =  ERORR_OD_read,
-sub_index	= msg->frame.data3,
+command = ERORR_OD_read,
+sub_index = msg->frame.data3,
 od_type	= tab->type,
-od_object	= tab->object;
+od_object = tab->object;
 
 uint32_t dump = 0;
 
