@@ -16,20 +16,20 @@ extern "C" {
 #endif
 
 	
-#define  SDO_Transmit	0x580
-#define  SDO_Receive	0x600
+#define  SDO_Transmit 0x580
+#define  SDO_Receive 0x600
 
-#define  PD1_Transmit	0x180
-#define  PD2_Transmit	0x280 
-#define  PD3_Transmit	0x380
-#define  PD4_Transmit	0x480 
+#define  PD1_Transmit 0x180
+#define  PD2_Transmit 0x280 
+#define  PD3_Transmit 0x380
+#define  PD4_Transmit 0x480 
 	
-#define  PD1_Receive	0x200
-#define  PD2_Receive	0x300
-#define  PD3_Receive	0x400
-#define  PD4_Receive	0x500
+#define  PD1_Receive 0x200
+#define  PD2_Receive 0x300
+#define  PD3_Receive 0x400
+#define  PD4_Receive	 0x500
 
-#define CAN_Emergency	0x80
+#define CAN_Emergency 0x80
 
 #define CanOpen_sync	0x80
 #define CanOpen_TimeStamp	0x100
@@ -48,7 +48,7 @@ extern "C" {
 #define Reset_Communication	0x82	
 	
 #define  STOPPED		0x04
-#define  OPERATIONAL		0x05
+#define  OPERATIONAL	0x05
 #define  PRE_OPERATIONAL	0x7F	
 
 #define _BOOLEAN	01	
@@ -468,6 +468,12 @@ uint16_t  cycle = 0;
 return (tab+cycle);
 };
 /**/
+
+#define attr_CONST	0
+#define attr_RO	0b01
+#define attr_WO	0b10
+#define attr_RW	0b11
+
 #define OK_OD_read8      command = 0x4F;break;
 #define OK_OD_read16    command = 0x4B;break;
 #define OK_OD_read32    command = 0x43;break;
@@ -493,8 +499,8 @@ od_object	= tab->object;
 
 uint32_t dump = 0;
 
-//tomorrow change
-//if(tab->attr==0){};
+// attr != WO
+if( tab->attr != attr_WO ){
 
 switch (od_object){
 	
@@ -613,17 +619,18 @@ switch (od_object){
 	
 	};
 	
+}else{dump = ERORR_OD_read;};	
+	
+	
+	
 msg->frame.data0 = command;
 msg->frame.data4 = dump&0xff;
 msg->frame.data5 = (dump&0xff00) >>8;
 msg->frame.data6 = (dump&0xff0000)>>16;
 msg->frame.data7 = (dump&0xff000000)>>24;
 
-if (command == 0x60){msg->frame.dlc = 4;
-}else{msg->frame.dlc = 8;}
-
-while(1){if (CAN_transmit(msg)) break;};
-
+// bit n 3..2 number of data bytes in Byte 4..7 that do not contain data
+msg->frame.dlc = 8-((command&0b00001100)>>2);
 };
 
 
@@ -660,40 +667,37 @@ uint32_t
 dump = 0,
 data32 = 0;
 
-// check rw
-//if((tab->attr)&0x02) {}
+// check 
+if((tab->attr)&attr_WO){
 
-switch(msg->frame.data0){
+	switch(msg->frame.data0){
 	
-case OD_save_u8:		
-	od_type2 = UNSIGNED8; 
-	data8 = msg->frame.data4;
-	if(od_type == _BOOLEAN){
-		data_bool= data8&1;  
-		od_type2= _BOOLEAN;
-		};	
+	case OD_save_u8:		
+		od_type2 = UNSIGNED8; 
+		data8 = msg->frame.data4;
+		if(od_type == _BOOLEAN){
+			data_bool= data8&1;  
+			od_type2= _BOOLEAN;
+			};	
 	break;
-case OD_save_u16:
-	od_type2 = UNSIGNED16;
-	data16 = msg->frame.data5;
-	data16 <<= 8;
-	data16 |= msg->frame.data4;	
+	case OD_save_u16:
+		od_type2 = UNSIGNED16;
+		data16 = msg->frame.data5;
+		data16 <<= 8;
+		data16 |= msg->frame.data4;	
 	break;
-case OD_save_u32:
-	od_type2 = UNSIGNED32;
-	data32 = msg->frame.data7;
-	data32 <<= 8;
-	data32 |= msg->frame.data6;
-	data32 <<= 8;
-	data32 |= msg->frame.data5;
-	data32 <<= 8;
-	data32 |= msg->frame.data4;
+	case OD_save_u32:
+		od_type2 = UNSIGNED32;
+		data32 = msg->frame.data7;
+		data32 <<= 8;
+		data32 |= msg->frame.data6;
+		data32 <<= 8;
+		data32 |= msg->frame.data5;
+		data32 <<= 8;
+		data32 |= msg->frame.data4;
 	break;
-default:od_type2  = 0;
-break;}
-
-// tomorrow change
-// if(tab->attr == od_write){}else{}
+	default:od_type2  = 0;
+	break;}
 
 switch (od_object){
 	
@@ -823,22 +827,24 @@ switch (od_object){
 			
 	
 	case OD_NULL:
-	command = 0x4f;	
+	command = 0x60;	
 	break;
 		
 	default: dump = ERORR_no_open;
 	break;
 	
 	};
-	
+}else{dump = ERORR_no_save;};
+
+
 msg->frame.data0 = command;
-msg->frame.data4 =  dump&0xff;
+msg->frame.data4 = dump&0xff;
 msg->frame.data5 = (dump&0xff00) >>8;
 msg->frame.data6 = (dump&0xff0000)>>16;
 msg->frame.data7 = (dump&0xff000000)>>24;
-msg->frame.dlc = 8;
-CAN_transmit(msg);
 
+if (command == 0x60){msg->frame.dlc = 4;
+	           }else{msg->frame.dlc = 8;}
 };
 
 
