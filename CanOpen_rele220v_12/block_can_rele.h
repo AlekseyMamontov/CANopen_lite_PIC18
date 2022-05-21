@@ -843,8 +843,8 @@ msg->frame.data5 = (dump&0xff00) >>8;
 msg->frame.data6 = (dump&0xff0000)>>16;
 msg->frame.data7 = (dump&0xff000000)>>24;
 
-if (command == 0x60){msg->frame.dlc = 4;
-	           }else{msg->frame.dlc = 8;}
+msg->frame.dlc = (command == 60 ? 4 : 8);
+
 };
 
 
