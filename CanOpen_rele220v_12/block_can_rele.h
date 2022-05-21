@@ -865,35 +865,55 @@ msg->frame.dlc = (command == 60 ? 4 : 8);
 #define SDO_data_u16 0x0B
 #define SDO_data_u32 0x03
 
-void read_rx_block_OD(struct OD_table *tab,uCAN_MSG *msg){
 
-uint8_t   erorr   = 0;	
-uint8_t   comm = ((msg->frame.id) >> 8) & 0x07 ;
-uint16_t num = 0;
-uint8_t   sub_index;
+#define SDO_Command_save 01
+#define SDO_Command_read 02
 
-if (comm== rxSDO){
+
+
+uint8_t SDO_Communication(struct OD_table *table_default,uCAN_MSG *msg,uint8_t s_index){
+
+uint8_t 
+error_value = 0,
+command = (msg->frame.data0&0b11100000)>>5;
+
+struct SDO_comm  
+*sdo_com = (struct SDO_comm*)(OD_search_N(table_default, 0x1200+s_index))->data;
+if (sdo_com == NULL) return error_value;
 	
-          num= msg->frame.data2;
-          num <<= 8;
-          num |= msg->frame.data1;
-          sub_index = msg->frame.data3;
-	  
-  switch (msg->frame.data0){
-	  
-      case SDO_read:
-	      
-	 tab = OD_search_N( tab, num); 
-	 if(tab->index == 0){erorr = 1; break;}
-	 //If(tab->object == UNSIGNED8) msg->frame.data4 =   
-	 break;
-	      
-  };
-			
+uint16_t	index = 0;
+	index = msg->frame.data5;
+	index <<= 8;
+	index |= msg->frame.data4;
+	
+struct OD_table *tab = OD_search_N(table_default,index); 
+
+
+uint32_t  
+*id_client = &sdo_com->cob_id_client,
+*id_server = &sdo_com->cob_id_server;
+
+	switch (command){
+
+	case SDO_Command_read:
 		
+		OD_read_data(tab,msg);	
 		
+		break;
+	
+	case SDO_Command_save:
+
+		OD_save_data(tab,msg);
 		
-	//tab = OD_search_N( tab, 1200);
+		break;	
+		
+	};
+
+
+
+
+
+
 
 };
 
@@ -902,7 +922,7 @@ if (comm== rxSDO){
 	
 
 
-};
+
 
 
 #ifdef	__cplusplus
