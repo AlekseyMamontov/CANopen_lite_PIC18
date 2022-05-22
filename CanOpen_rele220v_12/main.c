@@ -145,8 +145,8 @@ gpio_mask_input   = 0;
 
 struct SDO_comm   N1200; 
 
-struct OD_IDENTITY 
-N1018_Identity_Object ={.sub_index = 3, .value = N1018_value};
+struct OD_identity
+N1018_Identity_Object ={.sub_index = 4};
 
 struct OD_array_n   
 
@@ -163,27 +163,12 @@ struct PDO_mapping
 N1600={.sub_index = 1, .object = pdo1_map_output,},  
 N1A00={.sub_index = 1, .object = pdo1_map_input};
 
- /*
- struct OD_table{
-// 1000..	
-uint16_t	index;
-//char       *name;
-uint8_t      object;
-uint8_t	type;
-void	*data;
-uint8_t	attr;
-struct OD_table *next;
-struct OD_table *prev;
-};
-
-  */
-
-
+ 
  struct OD_table Table_can_rele[]={
 
-{0x1000, OD_VAR,UNSIGNED32,    (void *)&N1000_Device_Type,0},
+{0x1000, OD_VAR,UNSIGNED32, &N1000_Device_Type,attr_RO},
 {0x1029, OD_ARRAY,UNSIGNED32,&N1029_Communication_Error_value,0},
-{0x1200, OD_DEFSTRUCT, SDO_PARAMETER, &N1200,0},
+{0x1200, OD_DEFSTRUCT, SDO_PARAMETER, &N1200,attr_RO},
 {0x1400, OD_DEFSTRUCT, PDO_COMM,           &N1400,0},
 {0x1600, OD_DEFSTRUCT, PDO_MAPPING,      &N1600,0},
 {0x1800, OD_DEFSTRUCT, PDO_COMM,           &N1800,0},
