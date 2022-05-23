@@ -15,7 +15,6 @@
 extern "C" {
 #endif
 
-	
 #define  SDO_Transmit 0x580
 #define  SDO_Receive 0x600
 
@@ -28,6 +27,7 @@ extern "C" {
 #define  PD2_Receive 0x300
 #define  PD3_Receive 0x400
 #define  PD4_Receive	 0x500
+
 
 #define CAN_Emergency 0x80
 
@@ -65,8 +65,8 @@ extern "C" {
 
 #define OD_DOMAIN 2
 #define OD_RECORD 9
-void (*OD_function)(void*,void*);
-uint32_t (*OD_function32)(struct OD_table *tab,uCAN_MSG *msg);	
+void (*OD_function)(void* ,void*);
+
 
 /*struct example  020..23 PDO mapping*/
 #define OD_DEFSTRUCT 6	
@@ -110,7 +110,7 @@ uint8_t	attr;
 //struct OD_table *next;
 //struct OD_table *prev;
 };
-
+uint32_t (*OD_function32)(struct OD_table *tab,uCAN_MSG *msg);	
 
 //receive 1600h & transmit 1A00h
 #define PDO_MAPPING 21
@@ -849,23 +849,6 @@ msg->frame.dlc = (command == 60 ? 4 : 8);
 
 
 
-
-
-/**/ 
-#define TSTAMP 1
-#define RxPDO1 2
-#define RxPDO2 3
-#define RxPDO3 4
-#define RxPDO4 5
-#define rxSDO    6
-#define NMT_err 7
-#define SDO_read 0x40
-#define SDO_save 0x20
-#define SDO_data_u8   0x0F
-#define SDO_data_u16 0x0B
-#define SDO_data_u32 0x03
-
-
 #define SDO_Command_save 0x23
 #define SDO_Command_segment_save 21
 #define SDO_Command_read 0x40
@@ -927,13 +910,73 @@ id_server = &sdo_com->cob_id_server;
 		
 	};
 
-msg->frame.idType = *id_server	 & 0x1FFFFFFF;
+msg->frame.id = *id_server & 0x1FFFFFFF;
 	
-while(!CAN_transmit()){};
+while(!CAN_transmit(msg)){};
 return error_value;	
 };
 
 
+#define rxPDO_disabled	0x80000000 // 0b1000 0000 0000 0000
+#define PDO_is_transmit	0x80 //0b1000 0000
+#define PDO_calculate_n	0x700 // 0b111 0000 0000
+#define PDO_mask_addr	0x7FF // 0b0111 1111 1111
+
+uint8_t Receive_PDO (struct OD_table *table_default,uCAN_MSG *msg){
+
+uint32_t 	
+data32,	
+cob_id_pdo,
+msg_addr = msg->frame.id;	
+		
+uint8_t 	
+error = 0,
+sub_index = 0,
+size_bit = 0,
+number = msg_addr&PDO_is_transmit? 0 : (msg_addr&PDO_calculate_n)>>8;
+
+uint16_t
+index;
+
+uint64_t 
+map_block;
+		
+	if (number){number-=2;}else{return error;}
+
+struct OD_table 
+*tab_pdo = OD_search_N(table_default,1400+number),
+*tab_map =  OD_search_N(table_default,1600+number);
+	
+	if(tab_pdo == NULL ||  tab_map == NULL ) return error;
+
+struct PDO_comm *pdo_comm= (struct PDO_comm *)tab_pdo->data;
+
+	cob_id_pdo = pdo_comm->cob_id&rxPDO_disabled?
+		0 : pdo_comm->cob_id&PDO_mask_addr;
+
+	if (cob_id_pdo == 0 || cob_id_pdo == msg_addr ) return error;
+		
+struct PDO_mapping *pdo_map = (struct PDO_mapping*) tab_map->data;
+	
+	if (pdo_map->sub_index){sub_index=pdo_map->sub_index;}else{return error;};
+
+
+	for(uint8_t i=0; i < sub_index; i++){
+	
+	data32 = *((uint32_t *)pdo_map->object + i);
+	size_bit = data32&0xFF;
+	sub_index = (data32&0xFF00)>>8;
+	index = (data32&0xFFFF0000)>>16;
+	};
+
+
+
+
+
+
+return error;};
+
+void Transmit_PDO(struct OD_table *table_default,uCAN_MSG *msg){};
 
 	
 
@@ -947,3 +990,26 @@ return error_value;
 
 #endif	/* BLOCK_CAN__RELE_H */
 
+/*
+ 
+ switch(tab_pdo->object){
+
+	
+case OD_RECORD:		
+case  OD_DOMAIN:
+
+break;	
+	
+case OD_DEFTYPE:
+case OD_VAR:
+	
+break;
+	
+case OD_ARRAY:
+break;
+ 
+		
+
+};
+ 
+ */

@@ -166,7 +166,7 @@ N1A00={.sub_index = 1, .object = pdo1_map_input};
  
  struct OD_table Table_can_rele[]={
 
-{0x1000, OD_VAR,UNSIGNED32, &N1000_Device_Type,attr_RO},
+{0x1000, OD_VAR,UNSIGNED32, (void *)&N1000_Device_Type,attr_RO},
 {0x1029, OD_ARRAY,UNSIGNED32,&N1029_Communication_Error_value,0},
 {0x1200, OD_DEFSTRUCT, SDO_PARAMETER, &N1200,attr_RO},
 {0x1400, OD_DEFSTRUCT, PDO_COMM,           &N1400,0},
