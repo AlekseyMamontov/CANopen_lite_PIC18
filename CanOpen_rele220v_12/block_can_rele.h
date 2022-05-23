@@ -866,17 +866,17 @@ msg->frame.dlc = (command == 60 ? 4 : 8);
 #define SDO_data_u32 0x03
 
 
-#define SDO_Command_save 0x20
-#define SDO_Command_segment_save 0x21
+#define SDO_Command_save 0x23
+#define SDO_Command_segment_save 21
 #define SDO_Command_read 0x40
-#define SDO_Command_segment_save 0x21
+#define SDO_Command_segment_read 0x60
 
 
 uint8_t SDO_Communication(struct OD_table *table_default,uCAN_MSG *msg,uint8_t s_index){
 
 uint8_t 
 error_value = 0,
-command = msg->frame.data0 & 0b11100000;
+command = msg->frame.data0 & 0b11100011;
 
 struct SDO_comm  
 *sdo_com = (struct SDO_comm*)(OD_search_N(table_default, 0x1200+s_index))->data;
@@ -890,33 +890,47 @@ uint16_t	index = 0;
 struct OD_table *tab = OD_search_N(table_default,index); 
 
 
-uint32_t  
-*id_client = &sdo_com->cob_id_client,
-*id_server = &sdo_com->cob_id_server;
+uint32_t  *
+//*id_client = &sdo_com->cob_id_client,
+id_server = &sdo_com->cob_id_server;
 
 	switch (command){
 
 	case SDO_Command_read:
 		
-		
+		error_value = 1;
 		OD_read_data(tab,msg); // byte0 = 0x40
 						
 		break;
 	
 	case SDO_Command_save:
-
+		
+		error_value = 1;
 		OD_save_data(tab,msg); // byte0 = 0x20
 		
 		break;
 		
+	// future change	
+	case SDO_Command_segment_save:
+	case SDO_Command_segment_read:
 		
+		
+	default: 
+		msg->frame.data0 = 0x80;
+		msg->frame.dlc = 8;
+		msg->frame.data4 = 0x01;
+		msg->frame.data5 = 0x00;
+		msg->frame.data6 = 0x04;
+		msg->frame.data5 = 0x05;
+		break;	
 		
 		
 	};
 
+msg->frame.idType = *id_server	 & 0x1FFFFFFF;
 	
-	
-	
+while(!CAN_transmit()){};
+return error_value;	
 };
 
 
