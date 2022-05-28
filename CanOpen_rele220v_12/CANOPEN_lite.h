@@ -142,15 +142,14 @@ struct OD_table
 	
 struct OD_table	*tab = node->first_od_table;		
 uint32_t *status_error = node->error_search;
-		 *status_error = ERROR_no_object;
+	 *status_error = ERROR_no_object;
 
     while  (tab->index != 0){
 		if (tab->index == index && tab->sub_index == sub_index){
 			if(tab->data == NULL){*status_error = ERROR_ALL_OD_table;
-							}else{*status_error = 0;};
-			break;}	
-		if (tab->index > index){*status_error = ERROR_sub_index; break;}
-	tab++;}
+					}else{*status_error = 0;};break;}	
+		if (tab->index > index){*status_error = ERROR_sub_index; break;}	    
+		tab++;}
 	
 node->current_od_table = tab;	
 return tab;}
