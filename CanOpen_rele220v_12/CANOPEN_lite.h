@@ -70,17 +70,14 @@ extern "C" {
 
 struct OD_table{
 	
-/* index */	
+	
 uint16_t	index;
-
-/*sub_index*/
-
 uint8_t		sub_index;
 /*attr
-#define RW - Read and write access
-#define WO-  Write only
-#define RO - Read only
-#define CONST- Read only, Data is constant
+RW - Read and write access
+WO-  Write only
+RO - Read only
+CONST- Read only, Data is constant
  */
 uint8_t		attr;
 /*
@@ -198,52 +195,6 @@ uint8_t			sub,erorr = 0;
 node->current_od_table = tab;		
 return tab;
 };
-
-/* Search OD_table and return struct OD_table *
- * complete simple list iteration
- * */
-
-
-struct OD_table *OD_search_N (struct CAN_Node *node, uint16_t index, uint8_t sub_index;){
-
-struct OD_table	*tab = node->first_od_table;	
-uint32_t	node->error_search = 0;
-uint8_t
-sub,     
-erorr = 0; 
-
-   while(tab->index){ 
-	   
-		if (tab->index == index){
-			
-			
-		 if(tab->object = OD_ARRAY || 
-			tab->object== OD_DEFSTRUCT){
-                 		
-                 		if(*((uint8_t*)(tab->data)) < sub_index){
-								node->error_search = ERORR_sub_index;
-								break;}
-							
-								tab += sub_index;
-								
-						if (tab->sub_index != sub_index){ 						
-								node->error_search = ERRR_ALL_OD_table;
-								break;}
-								};
-							
-		if(tab->data == NULL) node->error_search = ERORR_no_object;
-		break;
-		
-		}else{tab += (tab->sub_index)+1;}
-};
-		
-node->current_od_table = tab;		
-return tab;
-};
-
-
-
-
 
 
 
