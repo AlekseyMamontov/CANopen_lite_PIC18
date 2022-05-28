@@ -112,9 +112,6 @@ void (*func)(*,*);
  */
 void		*data;
 
-/* lsizeOf()*/
-uint8_t		n_bayt;
-
 //struct OD_table *next;
 //struct OD_table *prev;
 
