@@ -218,7 +218,7 @@ OD_search_all( struct CAN_Node *node, uint16_t index,uint8_t sub_index){
  * Metod 2
  * */
 
-uint8_t OD_search__num (struct OD_table **ntab,uint16_t index,uint8_t sub_index ){
+uint8_t OD_search__num(struct OD_table **ntab,uint16_t index,uint8_t sub_index ){
 
 struct OD_table *tab = *ntab;
 
@@ -237,9 +237,24 @@ uint8_t   error =2;
 	
 return error;}
 
-
-
-
+struct OD_table *
+OD_search_all__( struct CAN_Node *node, uint16_t index,uint8_t sub_index){
+	
+struct OD_table **tab = &node->current_od_table;
+	
+	*tab= node->first_od_table;
+ 
+	switch(OD_search__num(tab,index,sub_index)){
+		
+		case 0: node->error_search = 0;break;	
+		case 1: node->error_search = ERROR_sub_index;break;
+		default: node->error_search = ERROR_no_object;
+		              node->current_od_table = NULL;
+		break;
+	};
+	
+return *tab;
+};
 
 
 
