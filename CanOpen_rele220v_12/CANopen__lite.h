@@ -97,12 +97,6 @@ extern "C" {
 #define WO	0b10
 #define RW	0b11	
 	
-/**/	
-#define SDO_Command_save		0x23
-#define SDO_Command_segment_save	0x21
-#define SDO_Command_read		0x40
-#define SDO_Command_segment_read	0x60
-	
 /**/
 	
 #define rxPDO_disabled	0x80000000 // 0b1000 0000 0000 0000
@@ -145,6 +139,7 @@ struct OD_subindex{
 uint8_t	object;
 /*_BOOLEAN,INTENGER8 ....UNSIGNED32,PDO_MAP.. etc. */
 uint8_t	type;
+uint8_t	attr;
 /* sizeOf()*/
 uint8_t	nbayt;
 /*(void*) INTENGER8 ...UNSIGNED32 *, void (*func)(*,*)*/
@@ -170,12 +165,11 @@ struct OD_table*	(*Search_index)(struct CAN_node* node);
 
 /*SDO protocol */	
 uint8_t		SDO_command;
-uint16_t	sdo_index; 
+uint16_t		sdo_index; 
 uint8_t		sdo_sub_index;
-struct 
-OD_subindex*	sdo_current_subindex;
+struct OD_subindex*	sdo_current_subindex;
 uint8_t		n_block;
-uint8_t*	data_block;		
+uint8_t*		data_block;		
 
 
 /*PDO protocol */
@@ -243,16 +237,20 @@ uint8_t OD_save_deftype_element(struct OD_subindex *sub, void* buf, uint8_t len)
 } ;
 
 
-
+/**/	
+#define SDO_Command_save		0x23
+#define SDO_Command_segment_save	0x21
+#define SDO_Command_read		0x40
+#define SDO_Command_segment_read	0x60
 /* Search  and return struct OD_subindex **/
 
 uint8_t SDO_Communication(struct CAN_node *node,void *data){
 
 struct OD_subindex * sub;
-uint8_t	 command = *((uint8_t*)data);
-uint16_t index =  *((uint8_t*)data+2);
-	 index = (index << 8) | *((uint8_t*)data+1);
-uint8_t	 subindex = *((uint8_t*)data+3);
+uint8_t     command = *((uint8_t*)data);
+uint16_t   index =  *((uint8_t*)data+2);
+                index = (index << 8) | *((uint8_t*)data+1);
+uint8_t     subindex = *((uint8_t*)data+3);
 
 
 
