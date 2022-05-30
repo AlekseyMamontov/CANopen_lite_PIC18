@@ -141,7 +141,7 @@ extern "C" {
 	
 	
 struct OD_subindex{
-/*VAR,DEFTYPE,ARRAY,DEFSTRUCTUR,DOMAIN,RECORD*/	
+/*VAR,DEFTYPE,ARRAY,DEFSTRUCT,DOMAIN,RECORD*/	
 uint8_t	object;
 /*_BOOLEAN,INTENGER8 ....UNSIGNED32,PDO_MAP.. etc. */
 uint8_t	type;
@@ -284,12 +284,7 @@ uint8_t	subindex = *((uint8_t*)data+3);
 		
 		break;
 	default: 
-		msg->frame.data0 = 0x80;
-		msg->frame.dlc = 8;
-		msg->frame.data4 = 0x01;
-		msg->frame.data5 = 0x00;
-		msg->frame.data6 = 0x04;
-		msg->frame.data5 = 0x05;
+		
 		break;	
 		
 		
