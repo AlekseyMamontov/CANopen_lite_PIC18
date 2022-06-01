@@ -141,7 +141,7 @@ uint8_t	object;
 uint8_t	type;
 uint8_t	attr;
 /* sizeOf()*/
-uint8_t	nbayt;
+uint8_t	n_bayt_data;
 /*(void*) INTENGER8 ...UNSIGNED32 *, void (*func)(*,*)*/
 void*	data;
 };
@@ -164,13 +164,20 @@ uint8_t		sub_index;
 struct OD_table*	(*Search_index)(struct CAN_node* node);
 
 /*SDO protocol */	
-uint8_t		SDO_command;
-uint16_t		sdo_index; 
-uint8_t		sdo_sub_index;
-struct OD_subindex*	sdo_current_subindex;
-uint8_t		n_block;
-uint8_t*		data_block;		
-
+/*rx upload*/
+uint8_t		SDO_rx_command;
+uint16_t		sdo_rx_index; 
+uint8_t		sdo_rx_sub_index;
+struct OD_subindex*	sdo_rx_current_subindex;
+uint8_t		n_rx_block;
+uint8_t*		sdo_rx_block;
+/*tx download*/
+uint8_t		SDO_tx_command;
+uint16_t		sdo_tx_index; 
+uint8_t		sdo_tx_sub_index;
+struct OD_subindex*	sdo_tx_current_subindex;
+uint8_t		n_tx_block;
+uint8_t*		sdo_tx_block;
 
 /*PDO protocol */
 
@@ -181,7 +188,7 @@ uint8_t*		data_block;
 /* Search OD_table and return struct OD_table *
  * complete simple list iteration */
 
-struct OD_table *OD_serch_index(struct OD_table *tab,uint16_t index){	
+struct OD_table *OD_search_index(struct OD_table *tab,uint16_t index){	
  uint8_t err = 1;	
 	while  (tab->index <= index || tab->index !=0){ 
 		if (tab->index == index){err = 0;break;}
@@ -189,7 +196,10 @@ struct OD_table *OD_serch_index(struct OD_table *tab,uint16_t index){
 	};
 	if (err) tab = NULL;
  return tab;};
-
+//Search_CAN_Node index ->node->current_od_table//
+struct OD_table *CAN_node_search_index(struct CAN_node *node,uint16_t index){
+return node->current_od_table = OD_search_index(node->current_od_table,index);
+}
  /* Search OD_subindex and return struct OD_subindex *
  * complete simple list iteration */
  
@@ -197,15 +207,21 @@ struct OD_subindex *OD_search_subindex(struct OD_table *index,uint8_t subindex){
 struct  OD_subindex *sub = index->subindex;	
 	
       if(sub->object == OD_ARRAY || sub->object == OD_DEFSTRUCT ||sub->object == OD_RECORD ){
-	if(*((uint8_t)sub->data) >= subindex) {sub+=subindex;}else{sub = NULL;};
+	if(*((uint8_t*)sub->data) >= subindex) {sub+=subindex;}else{sub = NULL;};
       };
+  return sub;
 };
+//Search_CAN_Node subindex->node->current_subindex//
+struct OD_subindex *CAN_node_search_subindex(struct CAN_node *node){
+return node->current_subindex = OD_search_subindex(node->current_od_table,node->sub_index);
+}
+
 /* Search OD_subindex and return struct OD_subindex */
 struct OD_subindex* OD_search_element(struct OD_table *tab,uint16_t index, uint16_t subindex, uint32_t *error){
 
 	struct OD_subindex* sub;
 
-	if ((tab = OD_serch_index(tab,index)) == NULL) *error = ERROR_no_object;
+	if ((tab = OD_search_index(tab,index)) == NULL) *error = ERROR_no_object;
 	if (sub->data != NULL){
 	    if ((sub = OD_search_subindex(tab,subindex)) == NULL){*error = ERROR_sub_index;};
 	}else{*error = ERROR_no_object;};	
@@ -213,8 +229,12 @@ struct OD_subindex* OD_search_element(struct OD_table *tab,uint16_t index, uint1
 
 /* Search OD_subindex and return struct OD_subindex */
 struct OD_subindex * OD_Search_table_element(struct CAN_node *node){
-return node->current_subindex = 
-OD_search_element(  node->first_od_table,node->index,node->sub_index,&node->error_search);
+	node->current_od_table = node->first_od_table;
+	return node->current_subindex = OD_search_element(  
+		node->current_od_table,
+		node->index,
+		node->sub_index,
+		&node->error_search);
 };
 
 
@@ -225,14 +245,14 @@ OD_search_element(  node->first_od_table,node->index,node->sub_index,&node->erro
 uint8_t OD_read_deftype_element(struct OD_subindex *sub,void* buf, uint8_t len){
 
 	for(uint8_t i = 0; i< len; i++){	
-	     *((uint8_t*)buf+i)= i < sub->nbayt? *((uint8_t*)sub->data +i) : 0;	
+	     *((uint8_t*)buf+i)= (i < sub->n_bayt_data)? *((uint8_t*)sub->data +i) : 0;	
 	}
 } ;
 
 uint8_t OD_save_deftype_element(struct OD_subindex *sub, void* buf, uint8_t len){
 	
 	for(uint8_t i = 0; i < len; i++){
-	   *((uint8_t*)sub->data +i) =  i< sub->nbayt ? *((uint8_t*)buf+i):0;	
+	   *((uint8_t*)sub->data +i) =  (i< sub->n_bayt_data) ? *((uint8_t*)buf+i):0;	
 	};
 } ;
 
@@ -251,7 +271,7 @@ uint8_t     command = *((uint8_t*)data);
 uint16_t   index =  *((uint8_t*)data+2);
                 index = (index << 8) | *((uint8_t*)data+1);
 uint8_t     subindex = *((uint8_t*)data+3);
-
+uint8_t*   buf;
 
 
 	
