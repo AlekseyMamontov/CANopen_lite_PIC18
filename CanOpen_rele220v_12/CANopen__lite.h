@@ -190,7 +190,7 @@ uint8_t*		sdo_tx_block;
 
 struct OD_table *OD_search_index(struct OD_table *tab,uint16_t index){	
  uint8_t err = 1;	
-	while  (tab->index <= index || tab->index !=0){ 
+	while  (tab->index !=0 && tab->index <= index){ 
 		if (tab->index == index){err = 0;break;}
 		tab++;
 	};
@@ -218,14 +218,14 @@ return node->current_subindex = OD_search_subindex(node->current_od_table,node->
 
 /* Search OD_subindex and return struct OD_subindex */
 struct OD_subindex* OD_search_element(struct OD_table *tab,uint16_t index, uint16_t subindex, uint32_t *error){
+struct OD_subindex* sub = NULL;
 
-	struct OD_subindex* sub;
-
-	if ((tab = OD_search_index(tab,index)) == NULL) *error = ERROR_no_object;
-	if (sub->data != NULL){
-	    if ((sub = OD_search_subindex(tab,subindex)) == NULL){*error = ERROR_sub_index;};
-	}else{*error = ERROR_no_object;};	
-};
+	if ((tab = OD_search_index(tab,index)) != NULL){ 
+		if (tab->subindex != NULL && tab->index != 0){
+			if ((sub = OD_search_subindex(tab,subindex)) == NULL){*error = ERROR_sub_index;};
+		}else{*error = ERROR_no_object;};
+	}else{*error = ERROR_no_object;}	
+return sub;};
 
 /* Search OD_subindex and return struct OD_subindex */
 struct OD_subindex * OD_Search_table_element(struct CAN_node *node){
@@ -249,12 +249,12 @@ uint8_t OD_read_deftype_element(struct OD_subindex *sub,void* buf, uint8_t len){
 	}
 } ;
 
-uint8_t OD_save_deftype_element(struct OD_subindex *sub, void* buf, uint8_t len){
+uint8_t OD_save_deftype_element(struct OD_subindex *sub, void* buf){
 	
-	for(uint8_t i = 0; i < len; i++){
-	   *((uint8_t*)sub->data +i) =  (i< sub->n_bayt_data) ? *((uint8_t*)buf+i):0;	
+	for(uint8_t i = 0; i < (sub->n_bayt_data); i++){
+	   *((uint8_t*)sub->data +i) = *((uint8_t*)buf+i);	
 	};
-} ;
+};
 
 
 /**/	
