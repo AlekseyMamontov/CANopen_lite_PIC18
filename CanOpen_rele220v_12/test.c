@@ -127,7 +127,7 @@ uint8_t	object;
 uint8_t	type;
 uint8_t	attr;
 /* sizeOf()*/
-uint8_t	n_bayt_data;
+uint8_t	n_byte_data;
 /*(void*) INTENGER8 ...UNSIGNED32 *, void (*func)(*,*)*/
 void*	data;
 };
@@ -137,36 +137,60 @@ uint16_t	index;
 uint8_t		nsub;
 struct OD_subindex*	subindex;
 };
+
+/* SDO segment block */
+
+struct SDO_block{
+uint8_t				command;
+uint16_t			index; 
+uint8_t				sub_index;
+struct OD_subindex*	object;
+uint8_t*			data;
+uint8_t				n_byte;	
+};
+/* PDO segment block */
+struct PDO_block{
+struct OD_subindex*	object;
+uint8_t				n_object;
+uint8_t 			buffer[8];	
+};
+
+
 /*Node CAN*/
 struct CAN_node{
+
+
+/*pre-orintal etc.*/
+uint8_t mode;
 
 /*search */	
 struct OD_table*	first_od_table;
 struct OD_table*	current_od_table;
 struct OD_subindex*	current_subindex;
-uint32_t 		error_search;	
-uint16_t		index; 
-uint8_t		sub_index;
-struct OD_table*	(*Search_index)(struct CAN_node* node);
+uint32_t 			error_search;	
+uint16_t			search_index; 
+uint8_t				search_sub_index;
+struct OD_table*	
+(*Search_index)(struct CAN_node* node);
 
-/*SDO protocol */	
-/*rx upload*/
-uint8_t				SDO_rx_command;
-uint16_t			sdo_rx_index; 
-uint8_t				sdo_rx_sub_index;
-struct OD_subindex*	sdo_rx_current_subindex;
-uint8_t				n_rx_block;
-uint8_t*			sdo_rx_block;
-/*tx download*/
-uint8_t				SDO_tx_command;
-uint16_t			sdo_tx_index; 
-uint8_t				sdo_tx_sub_index;
-struct OD_subindex*	sdo_tx_current_subindex;
-uint8_t				n_tx_block;
-uint8_t*			sdo_tx_block;
+/*SDO protocol segment*/	
+
+/*upload*/
+struct SDO_block* sdo_upload;
+uint8_t 		n_sdo_upload;
+/*download*/
+struct SDO_block* sdo_download;
+uint8_t			n_sdo_download;
 
 /*PDO protocol */
 
+/*RPDO*/
+struct PDO_block*	rpdo;
+uint8_t				n_rpdo;
+
+/*TPDO*/
+struct PDO_block*	tpdo;
+uint8_t				n_tpdo;
 
 
 };
@@ -229,8 +253,8 @@ struct OD_subindex * OD_Search_table_element(struct CAN_node *node){
 	node->current_od_table = node->first_od_table;
 	return node->current_subindex = OD_search_element(  
 		node->current_od_table,
-		node->index,
-		node->sub_index,
+		node->search_index,
+		node->search_sub_index,
 		&node->error_search);
 };
 
@@ -242,16 +266,53 @@ struct OD_subindex * OD_Search_table_element(struct CAN_node *node){
 uint8_t OD_read_deftype_element(struct OD_subindex *sub,void* buf, uint8_t len){
 
 	for(uint8_t i = 0; i< len; i++){	
-	     *((uint8_t*)buf+i) = (i < sub->n_bayt_data)? *((uint8_t*)sub->data +i) : 0;	
+	     *((uint8_t*)buf+i) = (i < sub->n_byte_data)? *((uint8_t*)sub->data +i) : 0;	
 	}
 } ;
 
 uint8_t OD_save_deftype_element(struct OD_subindex *sub, void* buf){
 	
-	for(uint8_t i = 0; i < (sub->n_bayt_data); i++){
+	for(uint8_t i = 0; i < (sub->n_byte_data); i++){
 	   *((uint8_t*)sub->data +i) = *((uint8_t*)buf+i);	
 	};
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 //////////////////////////////////////////test////////////////////////////////////////
 /*
