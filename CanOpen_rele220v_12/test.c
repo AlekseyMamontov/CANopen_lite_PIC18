@@ -148,9 +148,19 @@ struct OD_subindex*	object;
 uint8_t*			data;
 uint8_t				n_byte;	
 };
-/* PDO segment block */
+
+#define MAX_OBJECT_PDO 4
+#define MAX_ELEMENT_PDO 8
+
+/* PDO  element block */
+struct PDO_element{
+void* 	data;	
+uint8_t n_bit;
+uint8_t object;		
+};
+/* PDO 1...4 block */
 struct PDO_block{
-struct OD_subindex*	object;
+struct PDO_element *object[MAX_ELEMENT_PDO];
 uint8_t				n_object;
 uint8_t 			buffer[8];	
 };
@@ -211,7 +221,7 @@ struct OD_table *OD_search_index(struct OD_table *tab,uint16_t index){
 
 //Search_CAN_Node index ->node->current_od_table//
 struct OD_table *CAN_node_search_index(struct CAN_node *node){
-return node->current_od_table = OD_search_index(node->current_od_table,node->index);
+return node->current_od_table = OD_search_index(node->first_od_table,node->search_index);
 }
 /* Search OD_subindex and return struct OD_subindex *
  * complete simple list iteration */
@@ -227,7 +237,7 @@ return sub;
 };
 //Search_CAN_Node subindex->node->current_subindex//
 struct OD_subindex *CAN_node_search_subindex(struct CAN_node *node){
-return node->current_subindex = OD_search_subindex(node->current_od_table,node->sub_index);
+return node->current_subindex = OD_search_subindex(node->current_od_table,node->search_sub_index);
 }
 
 /* Search OD_subindex and return struct OD_subindex */
@@ -277,9 +287,79 @@ uint8_t OD_save_deftype_element(struct OD_subindex *sub, void* buf){
 	};
 };
 
+/*Init PDO block
+ * 
+struct PDO_block{
+struct OD_subindex*	object;
+uint8_t				n_object;
+uint8_t 			buffer[8];	
+};
+#define MAX_OBJECT_PDO 4
+#define MAX_ELEMENT_PDO 8
+* 
+*/
 
 
-
+/**/
+uint8_t RPDO_init_block (struct CAN_node *node,uint16_t pdo_index,uint8_t num){
+	
+	struct OD_table *tab,*map;
+	struct  OD_subindex *map_sub;
+	struct PDO_block *pdo;
+	uint32_t dump;
+	uint16_t index;
+	uint8_t subindex,nbit;
+	
+	if(num >= MAX_OBJECT_PDO) return 0;
+	
+	if((tab = OD_search_index (node->first_od_table,pdo_index+num))==NULL) return 0;	
+	if((map = OD_search_index (tab,(pdo_index+0x200)+num))==NULL) return 0;
+	if((map_sub = map->subindex) == NULL) return 0;
+	
+	pdo = node->rpdo + num;
+	
+	// n_map_data
+	pdo->n_object = *(uint8_t*)(map_sub->data);
+	if(pdo->n_object == 0) return 0;
+	
+	// index 1 map_data
+	map_sub++;
+	uint8_t i=0;
+	while(i< MAX_ELEMENT_PDO){
+		
+		dump = *(uint32_t*)map_sub->data;
+		nbit = dump&0xff;
+		dump >>=8;
+		subindex = dump&0xff;
+		dump >>=8;
+		index = dump&0xffff;
+		pdo->object[i]->n_bit = nbit;
+		pdo->object[i]->data = 
+		OD_search_element(node->first_od_table,index,subindex,&node->error_search)->data;
+		pdo->object[i]->object = map_sub->object;
+		
+		
+		
+		
+		
+		
+		
+		};
+	
+	 
+	
+	for (uint8_t i=0; i< MAX_ELEMENT_PDO;i++){
+			
+	
+		if(){
+		pdo->object[i] = 
+		};
+		
+		
+		};
+	
+	
+	};
 
 
 
@@ -323,6 +403,13 @@ uint8_t	attr;
 uint8_t	n_bayt_data;
 void*	data;
 };
+struct PDO_block{
+struct OD_subindex*	object;
+uint8_t				n_object;
+uint8_t 			buffer[8];	
+};
+* 
+* 
 */
 uint8_t Id_test = 0x55;
 
