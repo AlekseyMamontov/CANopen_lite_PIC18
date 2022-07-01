@@ -311,13 +311,13 @@ struct OD_subindex * OD_Search_table_element(struct CAN_node *node){
 uint8_t OD_read_deftype_element(struct OD_subindex *sub,void* buf, uint8_t len){
 
 	for(uint8_t i = 0; i< len; i++){	
-	     *((uint8_t*)buf+i) = (i < sub->n_byte_data)? *((uint8_t*)sub->data +i) : 0;	
+	     *((uint8_t*)buf+i) = (i < sub->n_data)? *((uint8_t*)sub->data +i) : 0;	
 	}
 } ;
 
 uint8_t OD_save_deftype_element(struct OD_subindex *sub, void* buf){
 	
-	for(uint8_t i = 0; i < (sub->n_byte_data); i++){
+	for(uint8_t i = 0; i < (sub->n_data); i++){
 	   *((uint8_t*)sub->data +i) = *((uint8_t*)buf+i);	
 	};
 };
@@ -341,7 +341,7 @@ uint8_t RPDO_init_block (struct CAN_node *node,uint16_t pdo_index,uint8_t num){
 	if((map = OD_search_index (tab,(pdo_index+0x200)+num))==NULL) return 0;
 	if((map_sub = map->subindex) == NULL) return 0;
 	
-	pdo = node->rpdo + num;
+	pdo = node->rxpdo + num;
 	
 	// n_map_data
 	pdo->n_object = *(uint8_t*)(map_sub->data);
