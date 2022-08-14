@@ -68,17 +68,17 @@
 #define UINT64		0x1B
 
 #define PDO_COMM	0x20
-#define PDO_MAPPING 0x21
+#define PDO_MAPPING 	0x21
 #define SDO_PARAMETER	0x22
-#define IDENTITY		0x23
+#define IDENTITY	0x23
 	
 /*Object Dictionary TYPE Definitions cia301*/
 #define OD_NULL 		0
 #define OD_DOMAIN 		2
 #define OD_RECORD 		9
-#define OD_DEFSTRUCT	6
-#define OD_DEFTYPE 	5
-#define OD_VAR 		7	
+#define OD_DEFSTRUCT		6
+#define OD_DEFTYPE 		5
+#define OD_VAR 			7	
 #define OD_ARRAY 		8
 
 /*Attribute*/	
@@ -96,19 +96,19 @@
 	
 	
 /**/	
-#define OK_OD_read8		0x4F
+#define OK_OD_read8	0x4F
 #define OK_OD_read16	0x4B
 #define OK_OD_read32	0x43
 	
-#define OD_save_u8		0x2F
-#define OD_save_u16		0x2B
-#define OD_save_u32		0x23
+#define OD_save_u8	0x2F
+#define OD_save_u16	0x2B
+#define OD_save_u32	0x23
 
-#define OK_OD_save		0x60
+#define OK_OD_save	0x60
 #define ERORR_command	0x80		
 	
 
-#define ERORR_no_save			0x06010002
+#define ERORR_no_save		0x06010002
 #define ERORR_no_correct_data	0x06090031
 
 #define ERROR_sub_index		0x06090011
@@ -132,8 +132,8 @@ void*	data;	/*(void*) INTENGER8 ...UNSIGNED32 *, void (*func)(*,*)*/
 
 /* OD_index*/
 struct OD_table{
-uint16_t			index;
-struct OD_subindex* subindex;
+uint16_t		index;
+struct OD_subindex*	subindex;
 };
 
 
@@ -149,18 +149,18 @@ union map_data{
 	uint8_t  nbit; 
 	uint8_t  sub_index;
 	uint16_t index;
-	}		 		parameter;
-	uint32_t 		data32;
+	}		parameter;
+	uint32_t	data32;
 };
 
 
 
 struct PDO_mapping{	
-uint8_t  			sub_index;
+uint8_t  		sub_index;
 union map_data 		data[MAX_ELEMENT_PDO];
 /*hidden quick access to objects*/
 struct OD_subindex* object[MAX_ELEMENT_PDO];
-uint8_t 			nbit[MAX_ELEMENT_PDO]; 
+uint8_t 		nbit[MAX_ELEMENT_PDO]; 
 };
 	
 //RPDO 1400h , TPDO 1800h
@@ -177,15 +177,15 @@ uint16_t	event_timer;
 
 struct PDO_object{
 	union {
-		struct{
+	  struct{
 		unsigned init: 1;
 		unsigned message:1;
-		}bits;
+		}	bits;
 		uint8_t byte;
-	}					        status;
+	}				status;
 	struct PDO_communication	comm;
-	struct PDO_mapping			map;
-	uint8_t 					buffer[8];
+	struct PDO_mapping		map;
+	uint8_t 			buffer[8];
 	};
 
 
@@ -193,13 +193,13 @@ struct PDO_object{
 
 //SDO block 1200
 struct SDO_block{
-uint8_t				status;
-uint8_t				command;
-uint16_t			index; 
-uint8_t				sub_index;
+uint8_t			status;
+uint8_t			command;
+uint16_t		index; 
+uint8_t			sub_index;
 struct OD_subindex*	object;
-uint8_t*			data;
-uint8_t				n_byte;	
+uint8_t*		data;
+uint8_t			n_byte;	
 };
 
 // RxSDO 580h +id , TxSDO 600 + id 
@@ -213,10 +213,10 @@ uint8_t		node_id;
 
 /*hidden quick access to objects*/
 struct
-SDO_block* sdo_upload;
+SDO_block*	sdo_upload;
 uint8_t 	n_sdo_upload;
 struct 
-SDO_block* sdo_download;
+SDO_block* 	sdo_download;
 uint8_t		n_sdo_download;
 };
 
@@ -232,27 +232,27 @@ uint8_t mode;	/*pre-orintal etc.*/
 struct OD_table*	first_od_table;
 struct OD_table*	current_od_table;
 struct OD_subindex*	current_subindex;
-uint32_t 			error_search;	
-uint16_t			search_index; 
-uint8_t				search_sub_index;
+uint32_t 		error_search;	
+uint16_t		search_index; 
+uint8_t			search_sub_index;
 struct OD_table*	
 (*Search_index)(struct CAN_node* node);
 
 /*SDO protocol segment*/	
 
 struct
-SDO_communication* sdo;
+SDO_communication*	sdo;
 uint8_t 		n_sdo;
 
 /*PDO protocol */
 
 /*RPDO*/
 struct PDO_object*	rxpdo[MAX_OBJECT_PDO];
-uint8_t				n_rxpdo;
+uint8_t			n_rxpdo;
 
 /*TPDO*/
 struct PDO_object*	txpdo[MAX_OBJECT_PDO];
-uint8_t				n_txpdo;
+uint8_t			n_txpdo;
 
 
 };
@@ -338,10 +338,10 @@ uint8_t PDO_init_object(struct CAN_node *node,struct PDO_object *pdo){
 	
 	for (uint8_t i=0;i < pdo->map.sub_index ;i++){
 		
-		 pdo->map.object[i] = OD_search_object(node->first_od_table,
-											pdo->map.data[i].parameter.index,
-											pdo->map.data[i].parameter.sub_index,
-											&node->error_search); 
+		 pdo->map.object[i] = OD_search_object( node->first_od_table,
+							pdo->map.data[i].parameter.index,
+							pdo->map.data[i].parameter.sub_index,
+							&node->error_search); 
 		if (pdo->map.object[i] == NULL) err=1; 
 	};
 return err;};
@@ -443,12 +443,13 @@ uint8_t  N1016_consumerHeartbeatTime_sub0;
 uint32_t N1016_consumerHeartbeatTime[1];
 uint16_t N1017_producerHeartbeatTime;
 struct {
-        uint8_t  sub_index;
-        uint32_t vendor_ID;
-        uint32_t productCode;
+	uint8_t  sub_index;
+	uint32_t vendor_ID;
+	uint32_t productCode;
         uint32_t revisionNumber;
         uint32_t serialNumber;
-    }N1018_Identity;
+	
+ }	N1018_Identity;
 
 
 
@@ -467,10 +468,10 @@ RxPDO1 = {
 	.map = {	
 		.sub_index = MAX_ELEMENT_PDO,
 		.data ={
-				{.data32 = 0x00000000},
-				{.data32 = 0x00000000},
-				{.data32 = 0x00000000},
-				{.data32 = 0x00000000},
+			{.data32 = 0x00000000},
+			{.data32 = 0x00000000},
+			{.data32 = 0x00000000},
+			{.data32 = 0x00000000},
 		},
 	},
 		
@@ -488,10 +489,10 @@ TxPDO1 = {
 	.map = {	
 		.sub_index = MAX_ELEMENT_PDO,
 		.data ={
-				{.data32 = 0x00000000},
-				{.data32 = 0x00000000},
-				{.data32 = 0x00000000},
-				{.data32 = 0x00000000},
+			{.data32 = 0x00000000},
+			{.data32 = 0x00000000},
+			{.data32 = 0x00000000},
+			{.data32 = 0x00000000},
 		},
 	},
 		
@@ -531,12 +532,12 @@ N1600[]={
 },
 
 N1800[]={
-	{OD_DEFSTRUCT,UINT8,	RO,sizeof(TxPDO1.comm.sub_index),		(void*)&TxPDO1.comm.sub_index},
-	{OD_VAR,	  UINT32,	RW,sizeof(TxPDO1.comm.cob_id),	 		(void*)&TxPDO1.comm.cob_id},				
+	{OD_DEFSTRUCT,	  UINT8,	RO,sizeof(TxPDO1.comm.sub_index),	(void*)&TxPDO1.comm.sub_index},
+	{OD_VAR,	  UINT32,	RW,sizeof(TxPDO1.comm.cob_id),		(void*)&TxPDO1.comm.cob_id},				
 	{OD_VAR,	  UINT8,	RW,sizeof(TxPDO1.comm.Transmission_type),(void*)&TxPDO1.comm.Transmission_type},
 	{OD_VAR,	  UINT16,	RW,sizeof(TxPDO1.comm.Inhibit_time),	(void*)&TxPDO1.comm.Inhibit_time},
-	{OD_VAR,	  UINT8,	RO,sizeof(TxPDO1.comm.none),			(void*)&TxPDO1.comm.none},
-	{OD_VAR,	  UINT16,	RW,sizeof(TxPDO1.comm.event_timer),		(void*)&TxPDO1.comm.event_timer},
+	{OD_VAR,	  UINT8,	RO,sizeof(TxPDO1.comm.none),		(void*)&TxPDO1.comm.none},
+	{OD_VAR,	  UINT16,	RW,sizeof(TxPDO1.comm.event_timer),	(void*)&TxPDO1.comm.event_timer},
 },
 N1A00[]={
 	{OD_ARRAY,	  UINT8,	RO,sizeof(TxPDO1.map.sub_index),(void*)&TxPDO1.map.sub_index},
@@ -559,9 +560,7 @@ struct OD_table MAP_Block_Rele[]={
 {0x1600,N1600},
 {0x1800,N1800},
 {0x1A00,N1A00},
-
-
-
+	
 {0x0000,NULL},
 };
 
