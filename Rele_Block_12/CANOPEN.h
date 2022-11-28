@@ -22,7 +22,7 @@
 #define  rxPDO3 0x400
 #define  rxPDO4 0x500
 
-// ------- function code -----------------
+// --- function code ------
 
 #define NMT         0b0000
 #define SYNC        0b0001
@@ -45,18 +45,18 @@
 
 // deftype	
 	
-#define boolean		0x01
-#define INT8		0x02
-#define INT16		0x03
-#define INT32		0x04
-#define UINT8		0x05
-#define UINT16		0x06
-#define UINT32		0x07
-#define REAL32		0x08
+#define boolean         0x01
+#define INT8            0x02
+#define INT16           0x03
+#define INT32           0x04
+#define UINT8           0x05
+#define UINT16          0x06
+#define UINT32          0x07
+#define REAL32          0x08
 #define VISIBLE_STRING	0x09
 #define OCTET_STRING	0x0A
 #define UNICODE_STRING	0x0B
-#define TIME_OF_DAY	0x0C
+#define TIME_OF_DAY     0x0C
 #define TIME_DIFFERENCE	0x0D
 
 #define DOMAIN		0x0F
@@ -110,98 +110,87 @@ of UNSIGNED8 and therefore not part of the ARRAY data*/
 #define PDO_is_transmit	0x80 	   //0b1000 0000
 #define PDO_calculate_n	0x700 // 0b111 0000 0000
 #define PDO_mask_addr	0x7FF // 0b0111 1111 1111
-	
-	
 
-//----------------  OD_TABLE  -----------------------------
 
-/* OD_sub_index*/
-struct OD_subindex{
-	
-uint8_t	object;	/* VAR,DEFTYPE,ARRAY,DEFSTRUCT,DOMAIN,RECORD*/
-uint8_t	type;	/*_BOOLEAN,INTENGER8 ....UNSIGNED32,PDO_MAP.. etc. */
-uint8_t	attr;	/* RO,RW,WO ...*/
-uint8_t	n_data; /* sizeOf()*/
-void*	data;	/*(void*) INTENGER8 ...UNSIGNED32 *, void (*func)(*,*)*/
+#define FUNC_MSG        0x01
+#define FUNC_SDO_READ   0x02
+#define FUNC_SDO_SAVE   0x03
+#define FUNC_SYSTEM     0x04
+
+
+
+//////////////////// ERROR ////////////////
+
+#define OK_SAVE         0x60
+
+#define RESPONSE_ERROR  0x80		
+
+uint32_t error_msg[]={
+
+#define NO_ERROR         0
+0x00000000,
+#define ERROR_NO_ACCESS  1
+0x06010000,
+#define ERROR_NO_READ    2
+0x06010001,
+#define ERROR_NO_SAVE    3
+0x06010002, 
+#define ERROR_NO_OBJECT  4     
+0x06020000,
+#define ERROR_OBJECT_PDO 5    
+0x06040041,
+#define ERROR_SIZE_PDO   6   
+0x06040042,
+#define ERROR_LEN_OBJECT 7
+0x06070010,
+#define ERROR_bLEN_OBJECT 8   
+0x06070012,
+#define ERROR_sLEN_OBJECT 9  
+0x06070013,
+#define ERROR_SUB_INDEX	  10	
+0x06090011,
+#define ERROR_NO_CORRECT  11   
+0x06090031,
+#define ERROR_SYSTEM      12
+0x06040047,
+#define ERROR_EQUIPMENT   13
+0x06060000,
+#define ERROR_TOGGLE_BIT  14
+0x05030000,
+#define ERROR_SDO_SERVER  15
+0x05040001,
+#define ERROR_DATA        16
+0x06090030,
+#define ERROR_BigDATA_OBJ 17
+0x06090031,
+#define ERROR_SmDATA_OBJ  18
+0x06090036,
+#define ERROR_ALL_OD_TABLE 19
+0x08000000,
+#define ERROR_OBJ_DICT    20
+0x80000023,
 };
 
-/* OD_index*/
-struct OD_table{
-uint16_t			index;
-struct OD_subindex* subindex;
-};
-// ------------------------- fast od table-------------------
+#define ERR_MSG(err) msg->frame_sdo.data.data32 = error_msg[err];\
+                     msg->frame_sdo.cmd = RESPONSE_ERROR;\
+                     msg->frame_sdo.dlc = 8;\
+                     
 
-typedef union {
-    void*  data;
-    void*  (*record)(void *);
-}sub_data;
-
-struct fast_table_index{
-    uint16_t index;
-    sub_data sub_index;
-};
-
-// ---------------------------------------------------------------------
-
-struct PDO_object{
-    
-//uint8_t		sub_index ;
-    
-uint32_t	cob_id ;
-uint8_t		Transmission_type;
-uint16_t	Inhibit_time;
-// uint8_t		none; 	
-uint16_t	event_timer;
-// quick access to the structure map
-uint8_t     status;
-uint8_t     data[8];
-//void *    pdo_map;
-};
-
-union map_data{
-	struct{
-	uint8_t  nbit; 
-	uint8_t  sub_index;
-	uint16_t index;
-	}		 parameter;
-	uint32_t data32;
-};
-
-struct xPDO_map {
-    uint8_t         sub_index;
-    union map_data  map[8];
-    // quick access to the map
-    void *          hidden_map[8];    
-};
-
-
-struct SDO_object{
-	
-uint8_t		sub_index;
-uint32_t	cob_id_client;
-uint32_t	cob_id_server;
-uint8_t		node_id;
-};
-// --------------- union -----------------
-
-#define COB_ID      array[1]&0x7f
+// ---------------- struct msg --------------------	
 
 union cob_id{
     
-           uint32_t id;
-           struct{
-               uint8_t     id: 7;
-               uint8_t f_code: 4;
-               uint8_t       : 5;
-               uint8_t       : 8;
-               uint8_t       : 5;
-               uint8_t frame : 1;
-               uint8_t       : 1;
-               uint8_t valid : 1;              
-            }pdo;
-                      
-     
+    uint32_t id;
+    struct{
+           uint8_t     id: 7;
+           uint8_t f_code: 4;
+           uint8_t       : 5;
+           uint8_t       : 8;
+           uint8_t       : 5;
+           uint8_t frame : 1;
+           uint8_t       : 1;
+           uint8_t valid : 1;              
+            }pdo;     
 };
 
 // for no 8bit
@@ -278,8 +267,383 @@ typedef union {
 #define COB_ID      array[1]&0x7f
 
 
+//----------------  OD_TABLE  -------------------------
 
-///////////////////////////////
+struct OD_object{
+    uint16_t index;
+    void* data;
+    void (*func_data)(CanOpen_msg *msg,void *obj);
+};
+
+// ------------------------------------------------------
+
+struct PDO_object{
+
+uint32_t	cob_id ;
+uint16_t	Inhibit_time; 	
+uint16_t	event_timer;
+
+uint8_t		Transmission_type;
+uint8_t		none;
+uint8_t		sub_index ;
+
+// quick access to the structure map
+uint8_t     status;
+uint8_t     data[8];
+//void *    pdo_map;
+};
+
+#define PDO_INIT 01
+
+
+union map_data{
+    
+	struct{
+	uint8_t  nbit; 
+	uint8_t  sub_index;
+	uint16_t index;
+	}		 parameter;
+	uint32_t data32;
+};
+
+struct PDO_mapping {
+    uint8_t         sub_index;
+    union map_data  map[8];
+    // quick access to the map
+    void *          hidden_map[8];    
+};
+
+
+
+
+struct OBJ_array{};
+
+
+/////////////////   SDO COMMUNICATION   ////////////
+
+struct SDO_object{
+	
+uint8_t		sub_index;
+uint32_t	cob_id_client;
+uint32_t	cob_id_server;
+uint8_t		node_id;
+};
+
+#define RESPONSE_1b  0x4f
+#define RESPONSE_2b  0x4B
+#define RESPONSE_3b  0x47
+#define RESPONSE_4b  0x43
+
+#define GET_1b  		0x2F
+#define GET_2b  		0x2B
+#define GET_3b  		0x27
+#define GET_4b  		0x23
+
+
+
+#define SDO_ANSWER_1b   msg->frame_sdo.cmd = RESPONSE_1b;\
+                        msg->frame_sdo.dlc = 5;\
+
+#define SDO_ANSWER_2b   msg->frame_sdo.cmd = RESPONSE_2b;\
+                        msg->frame_sdo.dlc = 6;\
+                         
+#define SDO_ANSWER_3b   msg->frame_sdo.cmd = RESPONSE_3b;\
+                        msg->frame_sdo.dlc = 7;\
+                         
+#define SDO_ANSWER_4b   msg->frame_sdo.cmd = RESPONSE_4b;\
+                        msg->frame_sdo.dlc = 8;\
+
+#define SDO_SAVE_OK     msg->frame_sdo.cmd = OK_SAVE;\
+                        msg->frame_sdo.dlc = 4;\
+
+
+
+
+/*-------------  1 bayt  ----------------*/
+
+void ro_object_1b(CanOpen_msg *msg,void *obj){
+
+    if (msg->frame_sdo.cmd == 0x40){            
+        msg->frame_sdo.data.data8 = *((uint8_t *)obj); SDO_ANSWER_1b return;} 
+    
+    ERR_MSG(ERROR_NO_SAVE)
+};
+
+void wo_object_1b(CanOpen_msg *msg,void *obj){
+
+    if (msg->frame_sdo.cmd == GET_1b && msg->frame_sdo.dlc > 4){            
+        *((uint8_t *)obj) = msg->frame_sdo.data.data8; SDO_SAVE_OK return;
+    }else{ ERR_MSG(ERROR_sLEN_OBJECT); return;}
+     
+    ERR_MSG(ERROR_NO_READ)
+};
+
+void rw_object_1b(CanOpen_msg *msg,void *obj){
+
+    if (msg->frame_sdo.cmd == 0x40){ 
+        msg->frame_sdo.data.data8 = *((uint8_t *)obj); SDO_ANSWER_1b;return;}
+    
+    if (msg->frame_sdo.cmd == GET_1b && msg->frame_sdo.dlc > 4){    
+        *((uint8_t *)obj) = msg->frame_sdo.data.data8;SDO_SAVE_OK return;
+    }else{ ERR_MSG(ERROR_sLEN_OBJECT) return;}
+    
+    ERR_MSG(ERROR_NO_CORRECT)     
+};
+
+/*----------------- 2 bayt -------------------*/
+
+void ro_object_2b(CanOpen_msg *msg,void *obj){
+
+    if (msg->frame_sdo.cmd == 0x40){            
+        msg->frame_sdo.data.data16 = *((uint16_t *)obj);SDO_ANSWER_2b;return;}
+     
+    ERR_MSG(ERROR_NO_SAVE)
+};
+
+void wo_object_2b(CanOpen_msg *msg,void *obj){
+
+    if (msg->frame_sdo.cmd == GET_2b && msg->frame_sdo.dlc > 5){            
+        *((uint16_t *)obj) = msg->frame_sdo.data.data16;SDO_SAVE_OK;return;
+    }else{ERR_MSG(ERROR_sLEN_OBJECT);return;}
+   
+    ERR_MSG(ERROR_NO_READ)
+};
+
+void rw_object_2b(CanOpen_msg *msg,void *obj){
+
+    if (msg->frame_sdo.cmd == 0x40){        
+        msg->frame_sdo.data.data16 = *((uint16_t *)obj);SDO_ANSWER_2b;return;}
+    
+    if (msg->frame_sdo.cmd == GET_2b && msg->frame_sdo.dlc > 5 ){    
+       *((uint16_t *)obj) = msg->frame_sdo.data.data16;SDO_SAVE_OK return;
+    }else{ ERR_MSG(ERROR_sLEN_OBJECT) return;}
+    
+    ERR_MSG(ERROR_NO_CORRECT)
+};
+
+/* -------------------- 3 bayt ----------------------  */
+
+void ro_object_3b(CanOpen_msg *msg,void *obj){
+
+    if (msg->frame_sdo.cmd == 0x40){
+            msg->frame_sdo.data.data24 = *((uint24_t *)obj); SDO_ANSWER_3b; return;}
+    
+     ERR_MSG(ERROR_NO_SAVE)
+};
+
+void wo_object_3b(CanOpen_msg *msg,void *obj){
+
+    if (msg->frame_sdo.cmd == GET_3b&&msg->frame_sdo.dlc > 6){            
+        *((uint24_t *)obj) = msg->frame_sdo.data.data24;SDO_SAVE_OK;return;
+    }else{ ERR_MSG(ERROR_sLEN_OBJECT) return;}
+     
+     ERR_MSG(ERROR_NO_READ)
+};
+
+void rw_object_3b(CanOpen_msg *msg,void *obj){
+
+    if (msg->frame_sdo.cmd == 0x40){ 
+        msg->frame_sdo.data.data24 = *((uint24_t *)obj);SDO_ANSWER_3b;return;}
+    
+    if (msg->frame_sdo.cmd == GET_3b&&msg->frame_sdo.dlc > 6){   
+        *((uint24_t *)obj) = msg->frame_sdo.data.data24;SDO_SAVE_OK;return;
+    }else{ ERR_MSG(ERROR_sLEN_OBJECT) return;}
+ 
+    ERR_MSG(ERROR_NO_CORRECT) 
+};
+
+/* -------------------- 4 bayt ----------------------*/
+
+void ro_object_4b(CanOpen_msg *msg,void *obj){
+
+    if (msg->frame_sdo.cmd == 0x40){           
+        msg->frame_sdo.data.data32 = *((uint32_t *)obj);SDO_ANSWER_4b;return;}
+     
+    ERR_MSG(ERROR_NO_SAVE)
+};
+
+void wo_object_4b(CanOpen_msg *msg,void *obj){
+
+    if (msg->frame_sdo.cmd == GET_4b&&msg->frame_sdo.dlc > 7){
+        *((uint32_t *)obj) = msg->frame_sdo.data.data32;SDO_SAVE_OK;return;
+    }else{ ERR_MSG(ERROR_sLEN_OBJECT) return;}
+    
+    ERR_MSG(ERROR_NO_READ)
+};
+
+void rw_object_4b(CanOpen_msg *msg,void *obj){
+
+    if (msg->frame_sdo.cmd == 0x40){        
+        msg->frame_sdo.data.data32 = *((uint32_t *)obj);SDO_ANSWER_4b;return;}
+    
+    if (msg->frame_sdo.cmd == GET_4b&&msg->frame_sdo.dlc > 7){   
+        *((uint32_t *)obj) = msg->frame_sdo.data.data32;SDO_SAVE_OK;return;
+    }else{ ERR_MSG(ERROR_sLEN_OBJECT) return;}
+  
+   ERR_MSG(ERROR_NO_CORRECT)
+};
+
+/* tpdo_object */
+
+void tpdo_object(CanOpen_msg *msg,void *obj){
+
+    struct PDO_object *pdo = (struct PDO_object *)obj; 
+    
+    uint8_t error = 0;
+           
+    if(msg->frame_sdo.cmd == 0x40){ // cmd 0x40 read object
+        
+      msg->frame_sdo.data.data32 = 0;              
+      switch(msg->frame_sdo.subindex){                 
+        case 0:msg->frame_sdo.data.data8  = 0x05;SDO_ANSWER_1b break;
+        case 1:msg->frame_sdo.data.data32 = pdo->cob_id;SDO_ANSWER_4b break;
+        case 2:msg->frame_sdo.data.data8  = pdo->Transmission_type;SDO_ANSWER_1b break;
+        case 3:msg->frame_sdo.data.data16 = pdo->Inhibit_time;SDO_ANSWER_2b break;                    
+        case 5:msg->frame_sdo.data.data16 = pdo->event_timer;SDO_ANSWER_2b break;    
+        default: error = ERROR_SUB_INDEX; break;}
+     
+    }else if((msg->frame_sdo.cmd&0xE0) == 0x20){  // cmd 0x2x save object
+             
+      uint8_t lock = pdo->cob_id&0x80000000?1:0;
+      
+      switch(msg->frame_sdo.subindex){  
+        case 0: error = ERROR_NO_SAVE;break;               
+        case 1: // sub-id 32b                                   
+          if( msg->frame_sdo.cmd == GET_4b && 
+              msg->frame_sdo.dlc == 8){
+
+              if(lock){ /// do the right processing!!!
+                  pdo->cob_id = msg->frame_sdo.data.data32&0x800007FF;
+                  if((pdo->cob_id&0x80000000) == 0) pdo->status |= PDO_INIT;
+                  break;
+              }else{error = ERROR_NO_SAVE; break;}             
+         };
+        error = ERROR_NO_OBJECT;
+        break;           
+        case 2: //Transmission_type   1b  
+           if (lock){   
+                if(msg->frame_sdo.cmd != GET_1b && 
+                   msg->frame_sdo.dlc < 5){error = ERROR_NO_CORRECT;break;}
+                    
+                        pdo->Transmission_type = msg->frame_sdo.data.data8;
+             
+           }else{error = ERROR_NO_SAVE;}; 
+        break;
+        case 3: //Inhibit_time; 2b
+           if (lock){ 
+                if(msg->frame_sdo.cmd != GET_2b && 
+                   msg->frame_sdo.dlc < 6){error = ERROR_NO_CORRECT;break;}
+                                
+                     pdo->Inhibit_time = msg->frame_sdo.data.data16;
+                             
+           }else{error = ERROR_NO_SAVE;}
+        break;
+        case 5: // event_timer  2b
+           if (lock){ 
+                if(msg->frame_sdo.cmd != GET_2b && 
+                   msg->frame_sdo.dlc < 6){error =ERROR_NO_CORRECT;break;}
+                       
+                       pdo->event_timer = msg->frame_sdo.data.data16;
+                               
+            }else{error = ERROR_NO_SAVE;};                   
+        break;
+        default:
+           error = ERROR_SUB_INDEX;                      
+        break;       
+      };         
+         if(!error) SDO_SAVE_OK  
+                 
+    }else{error =ERROR_NO_CORRECT;}; 
+    
+    if(error) ERR_MSG(error)
+};
+
+/* rpdo_object */
+
+void rpdo_object(CanOpen_msg *msg,void *obj){
+
+    struct PDO_object *pdo = (struct PDO_object *)obj; 
+    
+    uint8_t error = 0;
+           
+    if(msg->frame_sdo.cmd == 0x40){ // cmd 0x40 read object
+        
+      msg->frame_sdo.data.data32 = 0;              
+      switch(msg->frame_sdo.subindex){                 
+        case 0:msg->frame_sdo.data.data8  = 0x03;SDO_ANSWER_1b break;
+        case 1:msg->frame_sdo.data.data32 = pdo->cob_id;SDO_ANSWER_4b break;
+        case 2:msg->frame_sdo.data.data8  = pdo->Transmission_type;SDO_ANSWER_1b break;
+        //case 3:msg->frame_sdo.data.data16 = pdo->Inhibit_time;SDO_ANSWER_2b break;                    
+        //case 5:msg->frame_sdo.data.data16 = pdo->event_timer;SDO_ANSWER_2b break;    
+        default: error = ERROR_SUB_INDEX; break;}
+     
+    }else if((msg->frame_sdo.cmd&0xE0) == 0x20){  // cmd 0x2x save object
+             
+      uint8_t lock = pdo->cob_id&0x80000000?1:0;
+      
+      switch(msg->frame_sdo.subindex){  
+        case 0: error = ERROR_NO_SAVE;break;               
+        case 1: // sub-id 32b                                   
+          if( msg->frame_sdo.cmd != GET_4b && 
+              msg->frame_sdo.dlc != 8){error = ERROR_NO_CORRECT;break;}
+
+             if(lock){ /// do the right processing!!!
+                 
+                 pdo->cob_id |= (msg->frame_sdo.data.data32&0x80000000);
+                 if((pdo->cob_id&0x80000000) == 0) pdo->status |= PDO_INIT;
+                
+               break;}
+          
+          error = ERROR_NO_SAVE;           
+        break;           
+        case 2: //Transmission_type   1b  
+           if (lock){   
+                if(msg->frame_sdo.cmd != GET_1b && 
+                   msg->frame_sdo.dlc < 5){error = ERROR_NO_CORRECT;break;}
+                    
+                        pdo->Transmission_type = msg->frame_sdo.data.data8;
+             
+           }else{error = ERROR_NO_SAVE;}; 
+        break;
+        
+        /*
+        case 3: //Inhibit_time; 2b
+           if (lock){ 
+                if(msg->frame_sdo.cmd != GET_2b && 
+                   msg->frame_sdo.dlc < 6){error = ERROR_NO_CORRECT;break;}
+                                
+                     pdo->Inhibit_time = msg->frame_sdo.data.data16;
+                             
+           }else{error = ERROR_NO_SAVE;}
+        break;
+        case 5: // event_timer  2b
+           if (lock){ 
+                if(msg->frame_sdo.cmd != GET_2b && 
+                   msg->frame_sdo.dlc < 6){error =ERROR_NO_CORRECT;break;}
+                       
+                       pdo->event_timer = msg->frame_sdo.data.data16;
+                               
+            }else{error = ERROR_NO_SAVE;};                   
+        break;*/
+        
+        default:
+           error = ERROR_SUB_INDEX;                      
+        break;       
+      };         
+         if(!error) SDO_SAVE_OK  
+                 
+    }else{error =ERROR_NO_CORRECT;}; 
+    
+    if(error) ERR_MSG(error)
+};
+
+
+
+
+
+
+
+//////////////////STRUCT CAN NODE ////////////////
 
 
 struct xCanOpen{
@@ -289,8 +653,11 @@ uint8_t                mode; /*pre-orintal etc.*/
 
 CanOpen_msg*    current_msg;
 
+
 struct PDO_object*   pdo[8];
 struct SDO_object*   sdo[2];
+
+uint8_t Sync_object [8];
 
 
 void  (*object_call[8])(uint8_t ,void*);
@@ -299,33 +666,6 @@ void  (*object_call[8])(uint8_t ,void*);
 
 //////////// function obiect call ////////////
 
-#define FUNC_MSG        0x01
-#define FUNC_SDO_READ   0x02
-#define FUNC_SDO_SAVE   0x03
-#define FUNC_SYSTEM     0x04
-
-#define RESPONSE_1b  0x4f
-#define RESPONSE_2b  0x4B
-#define RESPONSE_3b  0x47
-#define RESPONSE_4b  0x43
-
-#define GET_1b  		0x2F
-#define GET_2b  		0x2B
-#define GET_4b  		0x23
-
-#define OK_SAVE         0x60
-
-#define RESPONSE_ERROR  0x80		
-	
-
-#define ERORR_NO_SAVE		0x06010002
-#define ERROR_OBJECT        0x06070010
-#define ERORR_NO_CORRECT    0x06090031
-
-#define ERROR_SUB_INDEX		0x06090011
-#define ERROR_no_object		0x06020000
-#define ERROR_no_open		0x06010000
-#define ERROR_ALL_OD_table	0x08000000
 
 
 
@@ -401,7 +741,7 @@ void SYNC_control(uint8_t code,void* data){};
 void TIME_control(uint8_t code,void* data){};
 
 
-//------------- xPDO object ----------------------
+////////////////////// xPDO COMMUNICATION /////////////////
 
 /* NodeID
  * 0...11 11-bit CAN-ID
@@ -443,168 +783,7 @@ void RPDO1_call(uint8_t code,void* data){
                     node->pdo[RxPDO1]->status | NEW_MSG_PDO;
                        
          break;
-            
-        case FUNC_SDO_READ:
-            
-            if (node->mode != OPERATIONAL || 
-                node->mode != PRE_OPERATIONAL) break;
-            
-            node->current_msg->frame_sdo.data.data32 = 0;
-                 
-            switch(node->current_msg->frame_sdo.subindex){ 
                 
-                case 0:  
-                node->current_msg->frame_sdo.data.data8 = 0x05;
-                node->current_msg->frame_sdo.cmd = RESPONSE_1b;
-                node->current_msg->frame_sdo.dlc = 5;
-                    break;
-                case 1:
-                node->current_msg->frame_sdo.data.data32 =
-                        node->pdo[RxPDO1]->cob_id;
-                node->current_msg->frame_sdo.cmd = RESPONSE_4b;
-                node->current_msg->frame_sdo.dlc = 8;
-                    break;
-                case 2:
-                node->current_msg->frame_sdo.data.data8 =
-                        node->pdo[RxPDO1]->Transmission_type;
-                node->current_msg->frame_sdo.cmd = RESPONSE_1b;
-                node->current_msg->frame_sdo.dlc = 5;
-                    break;
-                case 3:
-                node->current_msg->frame_sdo.data.data16 =
-                        node->pdo[RxPDO1]->Inhibit_time;
-                node->current_msg->frame_sdo.cmd = RESPONSE_2b;
-                node->current_msg->frame_sdo.dlc = 6;
-                
-                    break;                    
-                case 5:
-                node->current_msg->frame_sdo.data.data16 =
-                        node->pdo[RxPDO1]->event_timer;
-                node->current_msg->frame_sdo.cmd = RESPONSE_2b;
-                node->current_msg->frame_sdo.dlc = 6;
-                    break;
-                    
-                default:
-                 node->current_msg->frame_sdo.cmd = RESPONSE_ERROR;
-                 node->current_msg->frame_sdo.data.data32 = ERROR_SUB_INDEX;
-                 node->current_msg->frame_sdo.dlc = 8;
-                break;
-                    
-            }; 
- 
-         break;
-            
-        case FUNC_SDO_SAVE:
-            
-             if (node->mode != OPERATIONAL || 
-                 node->mode != PRE_OPERATIONAL) break; 
-             
-              switch(node->current_msg->frame_sdo.subindex){ 
-                    
-                case 0 :
-                   error = 1;  
-                   node->current_msg->frame_sdo.data.data32 = ERORR_NO_SAVE;   
-                   break;
-                        
-                case 1: // sub-id 32b               
-                    
-                    if(node->current_msg->frame_sdo.cmd != GET_4b && 
-                       node->current_msg->frame_sdo.dlc != 8){
-                       error = 1; 
-                       node->current_msg->frame_sdo.data.data32= ERROR_OBJECT;   
-                       break;}
-                                   
-                    if((node->current_msg->can_frame.id&0x7FF) == 
-                        (node->pdo[RxPDO1]->cob_id & 0x7ff)){
-                    
-                            node->pdo[RxPDO1]->cob_id =
-                            node->current_msg->can_frame.id&0x800007FF;        
-                     
-                    }else{
-                            error = 1;
-                            node->current_msg->frame_sdo.data.data32 = 
-                            ERORR_NO_SAVE;}                
-                    break;
-                    
-                case 2: //Transmission_type   1b  
-                    
-                    if (lock){ 
-                        
-                         if(node->current_msg->frame_sdo.cmd != GET_1b && 
-                            node->current_msg->frame_sdo.dlc >= 5){
-                            error = 1; 
-                            node->current_msg->frame_sdo.data.data32=
-                            ERORR_NO_CORRECT;
-                            break;}
-                                
-                            node->pdo[RxPDO1]->Transmission_type = 
-                                    node->current_msg->frame_sdo.data.data8;
-                    
-                            }else{
-                            error = 1;
-                            node->current_msg->frame_sdo.data.data32 = 
-                            ERORR_NO_SAVE;
-                            }; 
-
-                    break;
-                    
-                case 3: //Inhibit_time; 2b
-                    
-                     if (lock){ 
-                        
-                         if(node->current_msg->frame_sdo.cmd != GET_2b && 
-                            node->current_msg->frame_sdo.dlc >= 6){
-                            error = 1; 
-                            node->current_msg->frame_sdo.data.data32=
-                            ERORR_NO_CORRECT;
-                            break;}
-                                
-                            node->pdo[RxPDO1]->Inhibit_time = 
-                                    node->current_msg->frame_sdo.data.data16;
-                    
-                            }else{
-                            error = 1;
-                            node->current_msg->frame_sdo.data.data32 = 
-                            ERORR_NO_SAVE;
-                            };                   
-                            
-                    break;
-                case 5: // event_timer  2b
-                     
-                    if (lock){ 
-                        
-                         if(node->current_msg->frame_sdo.cmd != GET_2b && 
-                            node->current_msg->frame_sdo.dlc >= 6){
-                            error = 1; 
-                            node->current_msg->frame_sdo.data.data32=
-                            ERORR_NO_CORRECT;
-                            break;}
-                                
-                            node->pdo[RxPDO1]->event_timer = 
-                                    node->current_msg->frame_sdo.data.data16;
-                    
-                            }else{
-                            error = 1;
-                            node->current_msg->frame_sdo.data.data32 = 
-                            ERORR_NO_SAVE;
-                            };                   
-                    break;
-                    
-                default:
-                 error=1;
-                 node->current_msg->frame_sdo.data.data32 = ERROR_SUB_INDEX;                      
-                break;
-                    
-            };  
-             
-            if(error){
-                 node->current_msg->frame_sdo.cmd = RESPONSE_ERROR;
-                 node->current_msg->frame_sdo.dlc = 8;
-                }else{
-                 node->current_msg->frame_sdo.cmd=OK_SAVE;
-                 node->current_msg->frame_sdo.dlc = 4;
-                };               
-         break;    
             
         case FUNC_SYSTEM:
             
@@ -617,53 +796,21 @@ void RPDO1_call(uint8_t code,void* data){
                    
                case 0xFF:
                    break;
+                   
+               default:
+              
+                   if (node->pdo[RxPDO1]->Transmission_type > 0xF0) break;
+                   
+                   
+                   
+                   
                
-               
-               
-               
-               
-               
-               
-               
-               
-               
-               
-           
-           
-           
-           
-           
-           
-           
-           
-           
-           
-           
-           
            };
            
-           
-           
-           
-           
-           
-           
-           
-           
-            
-            
-            
-            
-            
          break;         
          
-         
-         
-         
-         
-         
         default:
-            break;
+        break;
             
     };
     
