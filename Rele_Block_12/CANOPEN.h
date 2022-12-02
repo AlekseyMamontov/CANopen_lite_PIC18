@@ -277,6 +277,25 @@ struct OD_object{
 
 // ------------------------------------------------------
 
+union map_data{
+    
+	struct{
+	uint8_t  nbit; 
+	uint8_t  sub_index;
+	uint16_t index;
+	}		 parameter;
+	uint32_t data32;
+};
+
+#define MAX_MAP_DATA 8
+
+struct PDO_mapping {
+    uint8_t         sub_index;
+    union map_data  map[MAX_MAP_DATA];
+    // quick access to the map
+    void *          hidden_map[8];    
+};
+
 struct PDO_object{
 
 uint32_t	cob_id ;
@@ -290,31 +309,11 @@ uint8_t		sub_index ;
 // quick access to the structure map
 uint8_t     status;
 uint8_t     data[8];
-//void *    pdo_map;
+struct 
+PDO_mapping* pdo_map;
 };
 
 #define PDO_INIT 01
-
-
-union map_data{
-    
-	struct{
-	uint8_t  nbit; 
-	uint8_t  sub_index;
-	uint16_t index;
-	}		 parameter;
-	uint32_t data32;
-};
-
-struct PDO_mapping {
-    uint8_t         sub_index;
-    union map_data  map[8];
-    // quick access to the map
-    void *          hidden_map[8];    
-};
-
-
-
 
 struct OBJ_array{};
 
@@ -637,9 +636,30 @@ void rpdo_object(CanOpen_msg *msg,void *obj){
     if(error) ERR_MSG(error)
 };
 
+/*------------------- pdo_map -------------*/
 
+void ro_map_object(CanOpen_msg *msg,void *obj){
 
+    struct PDO_object *pdo = (struct PDO_object *)obj; 
+    uint8_t error = 0;
+    if(msg->frame_sdo.cmd == 0x40){
+     msg->frame_sdo.data.data32 = 0;
+     
+     if(msg->frame_sdo.subindex == 0){                 
+        msg->frame_sdo.data.data8  = pdo->pdo_map->sub_index;
+        SDO_ANSWER_1b return;}
+     
+     if(msg->frame_sdo.subindex < MAX_MAP_DATA){
+     
+     msg->frame_sdo.data.data32 = pdo->pdo_map->map[(msg->frame_sdo.subindex)-1];
+     
+     };
+     
+     
+    };    
 
+    ERR_MSG(ERROR_NO_SAVE) 
+};
 
 
 
