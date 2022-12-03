@@ -293,7 +293,7 @@ struct PDO_mapping {
     uint8_t         sub_index;
     union map_data  map[MAX_MAP_DATA];
     // quick access to the map
-    void *          hidden_map[8];    
+    void *          hidden_map[MAX_MAP_DATA];    
 };
 
 struct PDO_object{
@@ -362,16 +362,29 @@ uint8_t		node_id;
 
 void ro_object_1b(CanOpen_msg *msg,void *obj){
 
-    if (msg->frame_sdo.cmd == 0x40){            
-        msg->frame_sdo.data.data8 = *((uint8_t *)obj); SDO_ANSWER_1b return;} 
+    uint8_t error = 0;
     
-    ERR_MSG(ERROR_NO_SAVE)
+    if (msg->frame_sdo.cmd == 0x40){            
+        msg->frame_sdo.data.data8 = *((uint8_t *)obj); 
+    }else if((msg->frame_sdo.cmd&0xE0) == 0x20){error = ERROR_NO_SAVE;
+    }else{error = ERROR_NO_CORRECT;};
+    
+    if (error){ERR_MSG(error)}else{SDO_ANSWER_1b}; 
 };
 
 void wo_object_1b(CanOpen_msg *msg,void *obj){
+    
+    uint8_t error = 0;
 
-    if (msg->frame_sdo.cmd == GET_1b && msg->frame_sdo.dlc > 4){            
-        *((uint8_t *)obj) = msg->frame_sdo.data.data8; SDO_SAVE_OK return;
+    if (msg->frame_sdo.cmd == GET_1b){ 
+        
+        if(msg->frame_sdo.dlc > 4){
+            *((uint8_t *)obj) = msg->frame_sdo.data.data8;SDO_SAVE_OK return;}
+        
+        error = ERROR_NO_CORRECT;
+        
+        
+        
     }else{ ERR_MSG(ERROR_sLEN_OBJECT); return;}
      
     ERR_MSG(ERROR_NO_READ)
@@ -481,8 +494,21 @@ void rw_object_4b(CanOpen_msg *msg,void *obj){
   
    ERR_MSG(ERROR_NO_CORRECT)
 };
+/* ----------------- array data ----------------------- */
 
-/* tpdo_object */
+
+
+
+
+
+
+
+
+
+
+
+
+/* --------------- tpdo_object ------------------------ */
 
 void tpdo_object(CanOpen_msg *msg,void *obj){
 
@@ -642,24 +668,56 @@ void ro_map_object(CanOpen_msg *msg,void *obj){
 
     struct PDO_object *pdo = (struct PDO_object *)obj; 
     uint8_t error = 0;
+    
     if(msg->frame_sdo.cmd == 0x40){
-     msg->frame_sdo.data.data32 = 0;
+       msg->frame_sdo.data.data32 = 0;
      
-     if(msg->frame_sdo.subindex == 0){                 
-        msg->frame_sdo.data.data8  = pdo->pdo_map->sub_index;
-        SDO_ANSWER_1b return;}
+         if(msg->frame_sdo.subindex == 0){                 
+             msg->frame_sdo.data.data8  = pdo->pdo_map->sub_index;
+             SDO_ANSWER_1b return;}
      
      if(msg->frame_sdo.subindex < MAX_MAP_DATA){
      
      msg->frame_sdo.data.data32 = pdo->pdo_map->map[(msg->frame_sdo.subindex)-1];
+     SDO_ANSWER_4b return;};
      
-     };
+    error = ERROR_SUB_INDEX; 
      
-     
-    };    
-
-    ERR_MSG(ERROR_NO_SAVE) 
+    }else if((msg->frame_sdo.cmd&0xE0) == 0x20){error = ERROR_NO_SAVE;
+    }else{error = ERROR_NO_CORRECT;};
+    
+    ERR_MSG(error) 
 };
+
+void rw_map_object(CanOpen_msg *msg,void *obj){
+
+
+    struct PDO_object *pdo = (struct PDO_object *)obj; 
+    uint8_t error = 0;
+    
+    if(msg->frame_sdo.cmd == 0x40){
+    
+        if(msg->frame_sdo.subindex == 0){                 
+             msg->frame_sdo.data.data8  = pdo->pdo_map->sub_index;
+             SDO_ANSWER_1b return;}    
+    
+        if(msg->frame_sdo.subindex < MAX_MAP_DATA){
+             msg->frame_sdo.data.data32 = 
+             pdo->pdo_map->map[(msg->frame_sdo.subindex)-1];
+             SDO_ANSWER_4b return;};
+    error = ERROR_SUB_INDEX;
+    };
+    
+    
+
+};
+
+
+
+
+
+
+
 
 
 
