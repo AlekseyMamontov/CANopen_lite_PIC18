@@ -161,10 +161,10 @@ uint32_t error_msg[]={
 0x05040001,
 #define ERROR_DATA        16
 0x06090030,
-#define ERROR_BigDATA_OBJ 17
+#define ERROR_BIG_DATA_OBJ 17
 0x06090031,
-#define ERROR_SmDATA_OBJ  18
-0x06090036,
+#define ERROR_SMALL_DATA_OBJ  18
+0x06090032,
 #define ERROR_ALL_OD_TABLE 19
 0x08000000,
 #define ERROR_OBJ_DICT    20
@@ -358,7 +358,7 @@ uint8_t		node_id;
 
 
 
-/*-------------  1 bayt  ----------------*/
+/*-----------------------  1 byte  ------------------------*/
 
 void ro_object_1b(CanOpen_msg *msg,void *obj){
 
@@ -375,125 +375,196 @@ void ro_object_1b(CanOpen_msg *msg,void *obj){
 void wo_object_1b(CanOpen_msg *msg,void *obj){
     
     uint8_t error = 0;
-
-    if (msg->frame_sdo.cmd == GET_1b){ 
-        
+    // for map_data answer n-byte
+    if (msg->frame_sdo.dlc == 0){msg->frame_sdo.dlc = 5;return;} 
+    
+    if (msg->frame_sdo.cmd == GET_1b){  
         if(msg->frame_sdo.dlc > 4){
-            *((uint8_t *)obj) = msg->frame_sdo.data.data8;SDO_SAVE_OK return;}
-        
-        error = ERROR_NO_CORRECT;
-        
-        
-        
-    }else{ ERR_MSG(ERROR_sLEN_OBJECT); return;}
+            *((uint8_t *)obj) = msg->frame_sdo.data.data8;    
+        }else{error = ERROR_SMALL_DATA_OBJ;}      
+    }else if(msg->frame_sdo.cmd == 0x40){error =ERROR_NO_READ ;
+    }else{error = ERROR_NO_CORRECT;}
      
-    ERR_MSG(ERROR_NO_READ)
+    if (error){ERR_MSG(error)}else{SDO_SAVE_OK};
 };
 
 void rw_object_1b(CanOpen_msg *msg,void *obj){
+    
+    uint8_t error = 0;
 
     if (msg->frame_sdo.cmd == 0x40){ 
-        msg->frame_sdo.data.data8 = *((uint8_t *)obj); SDO_ANSWER_1b;return;}
+        msg->frame_sdo.data.data8 = *((uint8_t *)obj);
+        SDO_ANSWER_1b;return;}
     
-    if (msg->frame_sdo.cmd == GET_1b && msg->frame_sdo.dlc > 4){    
-        *((uint8_t *)obj) = msg->frame_sdo.data.data8;SDO_SAVE_OK return;
-    }else{ ERR_MSG(ERROR_sLEN_OBJECT) return;}
+    //for answer map_data
+    if(msg->frame_sdo.dlc == 0){msg->frame_sdo.dlc = 5;return;}
+        
+    if(msg->frame_sdo.cmd == GET_1b){
     
-    ERR_MSG(ERROR_NO_CORRECT)     
+        if(msg->frame_sdo.dlc > 4){
+           *((uint8_t *)obj) = msg->frame_sdo.data.data8;    
+        }else{error = ERROR_SMALL_DATA_OBJ;}
+
+    }else{error = ERROR_NO_CORRECT;}   
+    
+    if (error){ERR_MSG(error)}else{SDO_SAVE_OK};
 };
 
-/*----------------- 2 bayt -------------------*/
+/*-----------------------  2 byte  ------------------------*/
 
 void ro_object_2b(CanOpen_msg *msg,void *obj){
 
+    uint8_t error = 0;
+    
     if (msg->frame_sdo.cmd == 0x40){            
-        msg->frame_sdo.data.data16 = *((uint16_t *)obj);SDO_ANSWER_2b;return;}
-     
-    ERR_MSG(ERROR_NO_SAVE)
+        msg->frame_sdo.data.data16 = *((uint16_t *)obj); 
+    }else if((msg->frame_sdo.cmd&0xE0) == 0x20){error = ERROR_NO_SAVE;
+    }else{error = ERROR_NO_CORRECT;};
+    
+    if (error){ERR_MSG(error)}else{SDO_ANSWER_2b}; 
 };
 
 void wo_object_2b(CanOpen_msg *msg,void *obj){
-
-    if (msg->frame_sdo.cmd == GET_2b && msg->frame_sdo.dlc > 5){            
-        *((uint16_t *)obj) = msg->frame_sdo.data.data16;SDO_SAVE_OK;return;
-    }else{ERR_MSG(ERROR_sLEN_OBJECT);return;}
-   
-    ERR_MSG(ERROR_NO_READ)
+    
+    uint8_t error = 0;
+    // for map_data answer n-byte
+    if (msg->frame_sdo.dlc == 0){msg->frame_sdo.dlc = 6;return;} 
+    
+    if (msg->frame_sdo.cmd == GET_2b){  
+        if(msg->frame_sdo.dlc > 5){
+            *((uint16_t *)obj) = msg->frame_sdo.data.data16;    
+        }else{error = ERROR_SMALL_DATA_OBJ;}      
+    }else if(msg->frame_sdo.cmd == 0x40){error =ERROR_NO_READ ;
+    }else{error = ERROR_NO_CORRECT;}
+     
+    if (error){ERR_MSG(error)}else{SDO_SAVE_OK};
 };
 
 void rw_object_2b(CanOpen_msg *msg,void *obj){
+    
+    uint8_t error = 0;
 
-    if (msg->frame_sdo.cmd == 0x40){        
-        msg->frame_sdo.data.data16 = *((uint16_t *)obj);SDO_ANSWER_2b;return;}
+    if (msg->frame_sdo.cmd == 0x40){ 
+        msg->frame_sdo.data.data16 = *((uint16_t *)obj);
+        SDO_ANSWER_2b;return;}
     
-    if (msg->frame_sdo.cmd == GET_2b && msg->frame_sdo.dlc > 5 ){    
-       *((uint16_t *)obj) = msg->frame_sdo.data.data16;SDO_SAVE_OK return;
-    }else{ ERR_MSG(ERROR_sLEN_OBJECT) return;}
+    //for answer map_data
+    if(msg->frame_sdo.dlc == 0){msg->frame_sdo.dlc = 6;return;}
+        
+    if(msg->frame_sdo.cmd == GET_2b){
     
-    ERR_MSG(ERROR_NO_CORRECT)
+        if(msg->frame_sdo.dlc > 5){
+           *((uint16_t *)obj) = msg->frame_sdo.data.data16;    
+        }else{error = ERROR_SMALL_DATA_OBJ;}
+
+    }else{error = ERROR_NO_CORRECT;}   
+    
+    if (error){ERR_MSG(error)}else{SDO_SAVE_OK};
 };
 
-/* -------------------- 3 bayt ----------------------  */
+/*-----------------------  3 byte  ------------------------*/
 
 void ro_object_3b(CanOpen_msg *msg,void *obj){
 
-    if (msg->frame_sdo.cmd == 0x40){
-            msg->frame_sdo.data.data24 = *((uint24_t *)obj); SDO_ANSWER_3b; return;}
+    uint8_t error = 0;
     
-     ERR_MSG(ERROR_NO_SAVE)
+    if (msg->frame_sdo.cmd == 0x40){            
+        msg->frame_sdo.data.data24 = *((uint24_t *)obj); 
+    }else if((msg->frame_sdo.cmd&0xE0) == 0x20){error = ERROR_NO_SAVE;
+    }else{error = ERROR_NO_CORRECT;};
+    
+    if (error){ERR_MSG(error)}else{SDO_ANSWER_3b}; 
 };
 
 void wo_object_3b(CanOpen_msg *msg,void *obj){
-
-    if (msg->frame_sdo.cmd == GET_3b&&msg->frame_sdo.dlc > 6){            
-        *((uint24_t *)obj) = msg->frame_sdo.data.data24;SDO_SAVE_OK;return;
-    }else{ ERR_MSG(ERROR_sLEN_OBJECT) return;}
+    
+    uint8_t error = 0;
+    // for map_data answer n-byte
+    if (msg->frame_sdo.dlc == 0){msg->frame_sdo.dlc = 7;return;} 
+    
+    if (msg->frame_sdo.cmd == GET_3b){  
+        if(msg->frame_sdo.dlc > 6){
+            *((uint24_t *)obj) = msg->frame_sdo.data.data24;    
+        }else{error = ERROR_SMALL_DATA_OBJ;}      
+    }else if(msg->frame_sdo.cmd == 0x40){error =ERROR_NO_READ ;
+    }else{error = ERROR_NO_CORRECT;}
      
-     ERR_MSG(ERROR_NO_READ)
+    if (error){ERR_MSG(error)}else{SDO_SAVE_OK};
 };
 
 void rw_object_3b(CanOpen_msg *msg,void *obj){
+    
+    uint8_t error = 0;
 
     if (msg->frame_sdo.cmd == 0x40){ 
-        msg->frame_sdo.data.data24 = *((uint24_t *)obj);SDO_ANSWER_3b;return;}
+        msg->frame_sdo.data.data24 = *((uint24_t *)obj);
+        SDO_ANSWER_3b;return;}
     
-    if (msg->frame_sdo.cmd == GET_3b&&msg->frame_sdo.dlc > 6){   
-        *((uint24_t *)obj) = msg->frame_sdo.data.data24;SDO_SAVE_OK;return;
-    }else{ ERR_MSG(ERROR_sLEN_OBJECT) return;}
- 
-    ERR_MSG(ERROR_NO_CORRECT) 
-};
+    //for answer map_data
+    if(msg->frame_sdo.dlc == 0){msg->frame_sdo.dlc = 7;return;}
+        
+    if(msg->frame_sdo.cmd == GET_3b){
+    
+        if(msg->frame_sdo.dlc > 6){
+           *((uint24_t *)obj) = msg->frame_sdo.data.data24;    
+        }else{error = ERROR_SMALL_DATA_OBJ;}
 
-/* -------------------- 4 bayt ----------------------*/
+    }else{error = ERROR_NO_CORRECT;}   
+    
+    if (error){ERR_MSG(error)}else{SDO_SAVE_OK};
+};
+/*-----------------------  4 byte  ------------------------*/
 
 void ro_object_4b(CanOpen_msg *msg,void *obj){
 
-    if (msg->frame_sdo.cmd == 0x40){           
-        msg->frame_sdo.data.data32 = *((uint32_t *)obj);SDO_ANSWER_4b;return;}
-     
-    ERR_MSG(ERROR_NO_SAVE)
+    uint8_t error = 0;
+    
+    if (msg->frame_sdo.cmd == 0x40){            
+        msg->frame_sdo.data.data32 = *((uint32_t *)obj); 
+    }else if((msg->frame_sdo.cmd&0xE0) == 0x20){error = ERROR_NO_SAVE;
+    }else{error = ERROR_NO_CORRECT;};
+    
+    if (error){ERR_MSG(error)}else{SDO_ANSWER_4b}; 
 };
 
 void wo_object_4b(CanOpen_msg *msg,void *obj){
-
-    if (msg->frame_sdo.cmd == GET_4b&&msg->frame_sdo.dlc > 7){
-        *((uint32_t *)obj) = msg->frame_sdo.data.data32;SDO_SAVE_OK;return;
-    }else{ ERR_MSG(ERROR_sLEN_OBJECT) return;}
     
-    ERR_MSG(ERROR_NO_READ)
+    uint8_t error = 0;
+    // for map_data answer n-byte
+    if (msg->frame_sdo.dlc == 0){msg->frame_sdo.dlc = 8;return;} 
+    
+    if (msg->frame_sdo.cmd == GET_4b){  
+        if(msg->frame_sdo.dlc > 7){
+            *((uint32_t *)obj) = msg->frame_sdo.data.data32;    
+        }else{error = ERROR_SMALL_DATA_OBJ;}      
+    }else if(msg->frame_sdo.cmd == 0x40){error =ERROR_NO_READ ;
+    }else{error = ERROR_NO_CORRECT;}
+     
+    if (error){ERR_MSG(error)}else{SDO_SAVE_OK};
 };
 
 void rw_object_4b(CanOpen_msg *msg,void *obj){
-
-    if (msg->frame_sdo.cmd == 0x40){        
-        msg->frame_sdo.data.data32 = *((uint32_t *)obj);SDO_ANSWER_4b;return;}
     
-    if (msg->frame_sdo.cmd == GET_4b&&msg->frame_sdo.dlc > 7){   
-        *((uint32_t *)obj) = msg->frame_sdo.data.data32;SDO_SAVE_OK;return;
-    }else{ ERR_MSG(ERROR_sLEN_OBJECT) return;}
-  
-   ERR_MSG(ERROR_NO_CORRECT)
+    uint8_t error = 0;
+
+    if (msg->frame_sdo.cmd == 0x40){ 
+        msg->frame_sdo.data.data32 = *((uint32_t *)obj);
+        SDO_ANSWER_4b;return;}
+    
+    //for answer map_data
+    if(msg->frame_sdo.dlc == 0){msg->frame_sdo.dlc = 8;return;}
+        
+    if(msg->frame_sdo.cmd == GET_4b){
+    
+        if(msg->frame_sdo.dlc > 6){
+           *((uint32_t *)obj) = msg->frame_sdo.data.data32;    
+        }else{error = ERROR_SMALL_DATA_OBJ;}
+
+    }else{error = ERROR_NO_CORRECT;}   
+    
+    if (error){ERR_MSG(error)}else{SDO_SAVE_OK};
 };
+
 /* ----------------- array data ----------------------- */
 
 
