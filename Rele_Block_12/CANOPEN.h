@@ -293,7 +293,8 @@ struct PDO_mapping {
     uint8_t         sub_index;
     union map_data  map[MAX_MAP_DATA];
     // quick access to the map
-    void *          hidden_map[MAX_MAP_DATA];    
+    void *                 quick_mapping[MAX_MAP_DATA];
+    struct OD_object*      node_map;
 };
 
 struct PDO_object{
@@ -307,10 +308,12 @@ uint8_t		none;
 uint8_t		sub_index ;
 
 // quick access to the structure map
-uint8_t     status;
-uint8_t     data[8];
 struct 
 PDO_mapping* pdo_map;
+
+
+uint8_t     status;
+uint8_t     data[8];
 };
 
 #define PDO_INIT 01
@@ -338,7 +341,8 @@ uint8_t		node_id;
 #define GET_3b  		0x27
 #define GET_4b  		0x23
 
-
+#define READ_REQUEST  0x40
+#define WRITE_REQUEST 0x20
 
 #define SDO_ANSWER_1b   msg->frame_sdo.cmd = RESPONSE_1b;\
                         msg->frame_sdo.dlc = 5;\
@@ -364,7 +368,7 @@ void ro_object_1b(CanOpen_msg *msg,void *obj){
 
     uint8_t error = 0;
     
-    if (msg->frame_sdo.cmd == 0x40){            
+    if (msg->frame_sdo.cmd == READ_REQUEST){            
         msg->frame_sdo.data.data8 = *((uint8_t *)obj); 
     }else if((msg->frame_sdo.cmd&0xE0) == 0x20){error = ERROR_NO_SAVE;
     }else{error = ERROR_NO_CORRECT;};
@@ -382,7 +386,7 @@ void wo_object_1b(CanOpen_msg *msg,void *obj){
         if(msg->frame_sdo.dlc > 4){
             *((uint8_t *)obj) = msg->frame_sdo.data.data8;    
         }else{error = ERROR_SMALL_DATA_OBJ;}      
-    }else if(msg->frame_sdo.cmd == 0x40){error =ERROR_NO_READ ;
+    }else if(msg->frame_sdo.cmd == READ_REQUEST){error =ERROR_NO_READ ;
     }else{error = ERROR_NO_CORRECT;}
      
     if (error){ERR_MSG(error)}else{SDO_SAVE_OK};
@@ -392,7 +396,7 @@ void rw_object_1b(CanOpen_msg *msg,void *obj){
     
     uint8_t error = 0;
 
-    if (msg->frame_sdo.cmd == 0x40){ 
+    if (msg->frame_sdo.cmd == READ_REQUEST){ 
         msg->frame_sdo.data.data8 = *((uint8_t *)obj);
         SDO_ANSWER_1b;return;}
     
@@ -416,7 +420,7 @@ void ro_object_2b(CanOpen_msg *msg,void *obj){
 
     uint8_t error = 0;
     
-    if (msg->frame_sdo.cmd == 0x40){            
+    if (msg->frame_sdo.cmd == READ_REQUEST){            
         msg->frame_sdo.data.data16 = *((uint16_t *)obj); 
     }else if((msg->frame_sdo.cmd&0xE0) == 0x20){error = ERROR_NO_SAVE;
     }else{error = ERROR_NO_CORRECT;};
@@ -434,7 +438,7 @@ void wo_object_2b(CanOpen_msg *msg,void *obj){
         if(msg->frame_sdo.dlc > 5){
             *((uint16_t *)obj) = msg->frame_sdo.data.data16;    
         }else{error = ERROR_SMALL_DATA_OBJ;}      
-    }else if(msg->frame_sdo.cmd == 0x40){error =ERROR_NO_READ ;
+    }else if(msg->frame_sdo.cmd == READ_REQUEST){error =ERROR_NO_READ ;
     }else{error = ERROR_NO_CORRECT;}
      
     if (error){ERR_MSG(error)}else{SDO_SAVE_OK};
@@ -444,7 +448,7 @@ void rw_object_2b(CanOpen_msg *msg,void *obj){
     
     uint8_t error = 0;
 
-    if (msg->frame_sdo.cmd == 0x40){ 
+    if (msg->frame_sdo.cmd == READ_REQUEST){ 
         msg->frame_sdo.data.data16 = *((uint16_t *)obj);
         SDO_ANSWER_2b;return;}
     
@@ -468,7 +472,7 @@ void ro_object_3b(CanOpen_msg *msg,void *obj){
 
     uint8_t error = 0;
     
-    if (msg->frame_sdo.cmd == 0x40){            
+    if (msg->frame_sdo.cmd == READ_REQUEST){            
         msg->frame_sdo.data.data24 = *((uint24_t *)obj); 
     }else if((msg->frame_sdo.cmd&0xE0) == 0x20){error = ERROR_NO_SAVE;
     }else{error = ERROR_NO_CORRECT;};
@@ -486,7 +490,7 @@ void wo_object_3b(CanOpen_msg *msg,void *obj){
         if(msg->frame_sdo.dlc > 6){
             *((uint24_t *)obj) = msg->frame_sdo.data.data24;    
         }else{error = ERROR_SMALL_DATA_OBJ;}      
-    }else if(msg->frame_sdo.cmd == 0x40){error =ERROR_NO_READ ;
+    }else if(msg->frame_sdo.cmd == READ_REQUEST){error =ERROR_NO_READ ;
     }else{error = ERROR_NO_CORRECT;}
      
     if (error){ERR_MSG(error)}else{SDO_SAVE_OK};
@@ -496,7 +500,7 @@ void rw_object_3b(CanOpen_msg *msg,void *obj){
     
     uint8_t error = 0;
 
-    if (msg->frame_sdo.cmd == 0x40){ 
+    if (msg->frame_sdo.cmd == READ_REQUEST){ 
         msg->frame_sdo.data.data24 = *((uint24_t *)obj);
         SDO_ANSWER_3b;return;}
     
@@ -519,7 +523,7 @@ void ro_object_4b(CanOpen_msg *msg,void *obj){
 
     uint8_t error = 0;
     
-    if (msg->frame_sdo.cmd == 0x40){            
+    if (msg->frame_sdo.cmd == READ_REQUEST){            
         msg->frame_sdo.data.data32 = *((uint32_t *)obj); 
     }else if((msg->frame_sdo.cmd&0xE0) == 0x20){error = ERROR_NO_SAVE;
     }else{error = ERROR_NO_CORRECT;};
@@ -537,7 +541,7 @@ void wo_object_4b(CanOpen_msg *msg,void *obj){
         if(msg->frame_sdo.dlc > 7){
             *((uint32_t *)obj) = msg->frame_sdo.data.data32;    
         }else{error = ERROR_SMALL_DATA_OBJ;}      
-    }else if(msg->frame_sdo.cmd == 0x40){error =ERROR_NO_READ ;
+    }else if(msg->frame_sdo.cmd == READ_REQUEST){error =ERROR_NO_READ ;
     }else{error = ERROR_NO_CORRECT;}
      
     if (error){ERR_MSG(error)}else{SDO_SAVE_OK};
@@ -547,7 +551,7 @@ void rw_object_4b(CanOpen_msg *msg,void *obj){
     
     uint8_t error = 0;
 
-    if (msg->frame_sdo.cmd == 0x40){ 
+    if (msg->frame_sdo.cmd == READ_REQUEST){ 
         msg->frame_sdo.data.data32 = *((uint32_t *)obj);
         SDO_ANSWER_4b;return;}
     
@@ -556,7 +560,7 @@ void rw_object_4b(CanOpen_msg *msg,void *obj){
         
     if(msg->frame_sdo.cmd == GET_4b){
     
-        if(msg->frame_sdo.dlc > 6){
+        if(msg->frame_sdo.dlc > 7){
            *((uint32_t *)obj) = msg->frame_sdo.data.data32;    
         }else{error = ERROR_SMALL_DATA_OBJ;}
 
@@ -587,7 +591,7 @@ void tpdo_object(CanOpen_msg *msg,void *obj){
     
     uint8_t error = 0;
            
-    if(msg->frame_sdo.cmd == 0x40){ // cmd 0x40 read object
+    if(msg->frame_sdo.cmd == READ_REQUEST){ // cmd 0x40 read object
         
       msg->frame_sdo.data.data32 = 0;              
       switch(msg->frame_sdo.subindex){                 
@@ -662,7 +666,7 @@ void rpdo_object(CanOpen_msg *msg,void *obj){
     
     uint8_t error = 0;
            
-    if(msg->frame_sdo.cmd == 0x40){ // cmd 0x40 read object
+    if(msg->frame_sdo.cmd == READ_REQUEST){ // cmd 0x40 read object
         
       msg->frame_sdo.data.data32 = 0;              
       switch(msg->frame_sdo.subindex){                 
@@ -740,14 +744,14 @@ void ro_map_object(CanOpen_msg *msg,void *obj){
     struct PDO_object *pdo = (struct PDO_object *)obj; 
     uint8_t error = 0;
     
-    if(msg->frame_sdo.cmd == 0x40){
+    if(msg->frame_sdo.cmd == READ_REQUEST){
        msg->frame_sdo.data.data32 = 0;
      
          if(msg->frame_sdo.subindex == 0){                 
              msg->frame_sdo.data.data8  = pdo->pdo_map->sub_index;
              SDO_ANSWER_1b return;}
      
-     if(msg->frame_sdo.subindex < MAX_MAP_DATA){
+     if(msg->frame_sdo.subindex =< MAX_MAP_DATA){
      
      msg->frame_sdo.data.data32 = pdo->pdo_map->map[(msg->frame_sdo.subindex)-1];
      SDO_ANSWER_4b return;};
@@ -760,35 +764,59 @@ void ro_map_object(CanOpen_msg *msg,void *obj){
     ERR_MSG(error) 
 };
 
-void rw_map_object(CanOpen_msg *msg,void *obj){
+void rw_rpdo_map_object(CanOpen_msg *msg,void *obj){
 
 
-    struct PDO_object *pdo = (struct PDO_object *)obj; 
+    struct PDO_object *pdo = (struct PDO_object *)obj;
+    void (*object_call)(CanOpen_msg * ,void* );
     uint8_t error = 0;
     
-    if(msg->frame_sdo.cmd == 0x40){
+    if(msg->frame_sdo.cmd == READ_REQUEST){
     
         if(msg->frame_sdo.subindex == 0){                 
              msg->frame_sdo.data.data8  = pdo->pdo_map->sub_index;
              SDO_ANSWER_1b return;}    
     
-        if(msg->frame_sdo.subindex < MAX_MAP_DATA){
+        if(msg->frame_sdo.subindex =< MAX_MAP_DATA){
              msg->frame_sdo.data.data32 = 
              pdo->pdo_map->map[(msg->frame_sdo.subindex)-1];
              SDO_ANSWER_4b return;};
-    error = ERROR_SUB_INDEX;
-    };
+             
+        error = ERROR_SUB_INDEX;
     
-    
-
+   }else if((msg->frame_sdo.cmd&0xE0) == 0x20){
+       
+      if(pdo->cob_id&0x80000000){  
+        if(msg->frame_sdo.subindex == 0){ 
+ 
+         if (msg->frame_sdo.cmd == GET_1b){  
+             if(msg->frame_sdo.dlc > 4){
+                    pdo->pdo_map->sub_index = msg->frame_sdo.data.data8;    
+            }else{error = ERROR_SMALL_DATA_OBJ;}
+          }else{error = ERROR_NO_CORRECT;} 
+        
+        }else if(msg->frame_sdo.subindex =< MAX_MAP_DATA){ 
+            
+            
+            
+  /*        if(msg->frame_sdo.dlc > 7){
+            if(pdo->cob_id&0x80000000){    
+            }else{error = ERROR_NO_SAVE;};  
+            }else{error = ERROR_SMALL_DATA_OBJ;}        */
+            
+            
+            
+            
+            
+            
+            
+        };     
+    };    
+ }else{error = ERROR_NO_CORRECT;};
+ 
+ 
+            
 };
-
-
-
-
-
-
-
 
 
 
@@ -802,6 +830,7 @@ uint8_t                mode; /*pre-orintal etc.*/
 
 CanOpen_msg*    current_msg;
 
+struct OD_object *      map;
 
 struct PDO_object*   pdo[8];
 struct SDO_object*   sdo[2];
