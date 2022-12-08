@@ -419,11 +419,11 @@ void ro_object_1b(CanOpen_msg *msg,void *obj){
        uint8_t error = ERROR_NO_CORRECT;
        if((msg->frame_sdo.cmd&0xE0) == 0x20) error = ERROR_NO_SAVE; 
        if(msg->frame_sdo.cmd == READ_REQUEST) error = 0;
-       if(obj) error = ERROR_SYSTEM;
+       if(!obj) error = ERROR_SYSTEM;
        if(error){ERR_MSG(error);return;}
        msg->frame_sdo.data.data8 = *((uint8_t *)obj);SDO_ANSWER_1b    
     }else{  
-        if(obj!=NULL){ 
+        if(obj){ 
             struct Info_Object *info = (struct Info_Object*)obj;
             info->sub_type = info->sub_type==0?UINT8:0;
             info->obj_code = OD_VAR;
@@ -438,9 +438,9 @@ void wo_object_1b(CanOpen_msg *msg,void *obj){
     if(msg != NULL){
         uint8_t error = ERROR_NO_CORRECT;
         if(msg->frame_sdo.cmd == READ_REQUEST) error = ERROR_NO_READ;
-        if(msg->frame_sdo.dlc < 5) error = ERROR_SMALL_DATA_OBJ;
         if(msg->frame_sdo.cmd == GET_1b) error = 0;
-        if(obj) error = ERROR_SYSTEM;
+        if(msg->frame_sdo.dlc < 5) error = ERROR_SMALL_DATA_OBJ;
+        if(!obj) error = ERROR_SYSTEM;
         if(error){ERR_MSG(error);return;};
         *((uint8_t *)obj) = msg->frame_sdo.data.data8;SDO_SAVE_OK   
     }else{
@@ -479,7 +479,7 @@ void ro_object_2b(CanOpen_msg *msg,void *obj){
        uint8_t error = ERROR_NO_CORRECT;
        if((msg->frame_sdo.cmd&0xE0) == 0x20) error = ERROR_NO_SAVE; 
        if(msg->frame_sdo.cmd == READ_REQUEST) error = 0;
-       if(obj) error = ERROR_SYSTEM;
+       if(!obj) error = ERROR_SYSTEM;
        if(error){ERR_MSG(error);return;}
        msg->frame_sdo.data.data16 = *((uint16_t *)obj);SDO_ANSWER_2b    
     }else{  
@@ -498,9 +498,9 @@ void wo_object_2b(CanOpen_msg *msg,void *obj){
     if(msg != NULL){
         uint8_t error = ERROR_NO_CORRECT;
         if(msg->frame_sdo.cmd == READ_REQUEST) error = ERROR_NO_READ;
-        if(msg->frame_sdo.dlc < 6) error = ERROR_SMALL_DATA_OBJ;
         if(msg->frame_sdo.cmd == GET_2b) error = 0;
-        if(obj) error = ERROR_SYSTEM;
+        if(msg->frame_sdo.dlc < 6) error = ERROR_SMALL_DATA_OBJ;
+        if(!obj) error = ERROR_SYSTEM;
         if(error){ERR_MSG(error);return;};
         *((uint16_t *)obj) = msg->frame_sdo.data.data16;SDO_SAVE_OK  
     }else{
@@ -539,7 +539,7 @@ void ro_object_3b(CanOpen_msg *msg,void *obj){
        uint8_t error = ERROR_NO_CORRECT;
        if((msg->frame_sdo.cmd&0xE0) == 0x20) error = ERROR_NO_SAVE; 
        if(msg->frame_sdo.cmd == READ_REQUEST) error = 0;
-       if(obj) error = ERROR_SYSTEM;
+       if(!obj) error = ERROR_SYSTEM;
        if(error){ERR_MSG(error);return;}
        msg->frame_sdo.data.data24 = *((uint24_t *)obj);SDO_ANSWER_3b    
     }else{  
@@ -558,9 +558,9 @@ void wo_object_3b(CanOpen_msg *msg,void *obj){
     if(msg != NULL){
         uint8_t error = ERROR_NO_CORRECT;
         if(msg->frame_sdo.cmd == READ_REQUEST) error = ERROR_NO_READ;
-        if(msg->frame_sdo.dlc < 7) error = ERROR_SMALL_DATA_OBJ;
         if(msg->frame_sdo.cmd == GET_3b) error = 0;
-        if(obj) error = ERROR_SYSTEM;
+        if(msg->frame_sdo.dlc < 7) error = ERROR_SMALL_DATA_OBJ;
+        if(!obj) error = ERROR_SYSTEM;
         if(error){ERR_MSG(error);return;};
         *((uint24_t *)obj) = msg->frame_sdo.data.data24;SDO_SAVE_OK     
     }else{
@@ -599,7 +599,7 @@ void ro_object_4b(CanOpen_msg *msg,void *obj){
        uint8_t error = ERROR_NO_CORRECT;
        if((msg->frame_sdo.cmd&0xE0) == 0x20) error = ERROR_NO_SAVE; 
        if(msg->frame_sdo.cmd == READ_REQUEST) error = 0;
-       if(obj) error = ERROR_SYSTEM;
+       if(!obj) error = ERROR_SYSTEM;
        if(error){ERR_MSG(error);return;}
        msg->frame_sdo.data.data32 = *((uint32_t *)obj);SDO_ANSWER_4b    
     }else{  
@@ -618,9 +618,9 @@ void wo_object_4b(CanOpen_msg *msg,void *obj){
     if(msg != NULL){
         uint8_t error = ERROR_NO_CORRECT;
         if(msg->frame_sdo.cmd == READ_REQUEST) error = ERROR_NO_READ;
-        if(msg->frame_sdo.dlc < 8) error = ERROR_SMALL_DATA_OBJ;
         if(msg->frame_sdo.cmd == GET_4b) error = 0;
-        if(obj) error = ERROR_SYSTEM;
+        if(msg->frame_sdo.dlc < 8) error = ERROR_SMALL_DATA_OBJ;
+        if(!obj) error = ERROR_SYSTEM;
         if(error){ERR_MSG(error);return;};
         *((uint32_t *)obj) = msg->frame_sdo.data.data32;SDO_SAVE_OK     
     }else{
