@@ -538,7 +538,7 @@ void rw_object_2b(CanOpen_msg *msg,void *obj){
     if(msg){
         switch(msg->frame_sdo.cmd){
             case READ_REQUEST: ro_object_2b(msg,obj); break;
-            case GET_1b:wo_object_2b(msg,obj);break;
+            case GET_2b:wo_object_2b(msg,obj);break;
             default: ERR_MSG(ERROR_NO_CORRECT);break; 
         };
     }else{
@@ -600,7 +600,7 @@ void rw_object_3b(CanOpen_msg *msg,void *obj){
     if(msg){
         switch(msg->frame_sdo.cmd){
             case READ_REQUEST: ro_object_3b(msg,obj); break;
-            case GET_1b:wo_object_3b(msg,obj);break;
+            case GET_3b:wo_object_3b(msg,obj);break;
             default: ERR_MSG(ERROR_NO_CORRECT);break; 
         };
     }else{
@@ -662,7 +662,7 @@ void rw_object_4b(CanOpen_msg *msg,void *obj){
     if(msg){
         switch(msg->frame_sdo.cmd){
             case READ_REQUEST: ro_object_4b(msg,obj); break;
-            case GET_1b:wo_object_4b(msg,obj);break;
+            case GET_4b:wo_object_4b(msg,obj);break;
             default: ERR_MSG(ERROR_NO_CORRECT);break; 
         };
     }else{
@@ -684,8 +684,9 @@ void rw_object_4b(CanOpen_msg *msg,void *obj){
 
 void ro_pdo_object(CanOpen_msg *msg,void *obj){
     
-    struct PDO_object *pdo = (struct PDO_object *)obj;
+    
     if(msg){
+       struct PDO_object *pdo = (struct PDO_object *)obj;
        uint8_t error = ERROR_NO_CORRECT;
        if((msg->frame_sdo.cmd&0xE0) == 0x20) error = ERROR_NO_SAVE;
        if(msg->frame_sdo.cmd == READ_REQUEST) error = 0;
@@ -718,9 +719,9 @@ void ro_pdo_object(CanOpen_msg *msg,void *obj){
 };
 
 void wo_pdo_object(CanOpen_msg *msg,void *obj){
-    
-    struct PDO_object *pdo = (struct PDO_object *)obj;
+      
     if(msg){
+       struct PDO_object *pdo = (struct PDO_object *)obj; 
        uint8_t error = ERROR_NO_CORRECT;
        if(msg->frame_sdo.cmd == READ_REQUEST) error = ERROR_NO_READ;
        if((msg->frame_sdo.cmd&0xE0) == 0x20) error = 0;
@@ -787,8 +788,9 @@ void wo_pdo_object(CanOpen_msg *msg,void *obj){
 
 void rw_pdo_object(CanOpen_msg *msg,void *obj){
 
-    struct PDO_object *pdo = (struct PDO_object *)obj;
+    
     if(msg){
+         struct PDO_object *pdo = (struct PDO_object *)obj;
          if(msg->frame_sdo.cmd == READ_REQUEST){
               ro_pdo_object(CanOpen_msg msg,obj);
         }else{wo_pdo_object(CanOpen_msg msg,obj);}    
@@ -801,31 +803,94 @@ void rw_pdo_object(CanOpen_msg *msg,void *obj){
 /*------------------- pdo_map -------------*/
 
 void ro_map_object(CanOpen_msg *msg,void *obj){
-
-    struct PDO_object *pdo = (struct PDO_object *)obj; 
-    uint8_t error = 0;
-    
-    if(msg->frame_sdo.cmd == READ_REQUEST){
-       msg->frame_sdo.data.data32 = 0;
-     
-         if(msg->frame_sdo.subindex == 0){                 
-             msg->frame_sdo.data.data8  = pdo->pdo_map->sub_index;
-             SDO_ANSWER_1b return;}
-     
-     if(msg->frame_sdo.subindex <= MAX_MAP_DATA){
-     
-     msg->frame_sdo.data.data32 = pdo->pdo_map->map[(msg->frame_sdo.subindex)-1].data32;
-     SDO_ANSWER_4b return;};
-     
-    error = ERROR_SUB_INDEX; 
-     
-    }else if((msg->frame_sdo.cmd&0xE0) == 0x20){error = ERROR_NO_SAVE;
-    }else{error = ERROR_NO_CORRECT;};
-    
-    ERR_MSG(error) 
+    if(msg){
+       struct PDO_object *pdo = (struct PDO_object *)obj; 
+       uint8_t error = ERROR_NO_CORRECT;
+       if((msg->frame_sdo.cmd&0xE0) == 0x20) error = ERROR_NO_SAVE;
+       if(msg->frame_sdo.cmd == READ_REQUEST) error = 0;
+       if(msg->frame_sdo.dlc < 4) error = ERROR_SMALL_DATA_OBJ;
+       if(!pdo) error = ERROR_SYSTEM;
+       if(!error){
+            if(msg->frame_sdo.subindex == 0){
+                msg->frame_sdo.data.data8  = pdo->pdo_map->sub_index;
+                SDO_ANSWER_1b return;}
+            if(msg->frame_sdo.subindex <= MAX_MAP_DATA){
+                msg->frame_sdo.data.data32 = 
+                        pdo->pdo_map->map[(msg->frame_sdo.subindex)-1].data32;
+                SDO_ANSWER_4b return;}
+            error = ERROR_SUB_INDEX;}
+       ERR_MSG(error);
+    }else{   
+        if(obj){  
+            struct Info_Object *info = (struct Info_Object*)obj;
+                info->obj_code = OD_ARRAY; 
+                info->access = RO;
+            if(msg->frame_sdo.subindex <= MAX_MAP_DATA){
+                info->nbit = info->sub_type==0?0x08:0x20;
+                info->sub_type = info->sub_type==0?UINT8:UINT32; 
+            }else{info->nbit = 0; 
+                  info->sub_type = 0;
+                  info->access = 0;}
+        };
+    }
 };
 
 void rw_rpdo_map_object(CanOpen_msg *msg,void *obj){
+
+ if(msg){
+    if(msg->frame_sdo.cmd == READ_REQUEST){ro_map_object(msg,obj);return;}
+    
+    struct PDO_object *pdo = (struct PDO_object *)obj;
+    struct OD_object *map;
+    void (*object_call)(CanOpen_msg * ,void* );
+    uint8_t error = ERROR_NO_CORRECT;;
+    uint8_t lock = pdo->cob_id&0x80000000?1:0; 
+    
+    if((msg->frame_sdo.cmd&0xE0) == 0x20) error = 0;
+    if(msg->frame_sdo.dlc < 5) error = ERROR_SMALL_DATA_OBJ;
+    if(!pdo) error = ERROR_SYSTEM;  
+    if(!error){
+        if(lock){  
+            if(msg->frame_sdo.subindex==0 &&
+               msg->frame_sdo.cmd == GET_1b){
+               pdo->pdo_map->sub_index = 
+               msg->frame_sdo.data.data8<=MAX_MAP_DATA?
+                   msg->frame_sdo.data.data8:MAX_MAP_DATA;
+               
+            }else if(msg->frame_sdo.subindex <=MAX_MAP_DATA&&
+                     msg->frame_sdo.cmd == GET_4b&&
+                     msg->frame_sdo.dlc > 7){
+                     map = OD_search_index(msg,pdo->pdo_map->node_map);
+                
+                
+                
+                
+            }else{error = ERROR_NO_CORRECT;}; 
+            
+
+      
+                       
+                // correct index and sub-index    
+                map = OD_search_index(msg,pdo->pdo_map->node_map);    
+                    
+                   if(map->index){
+                  
+                       error = msg->frame_sdo.dlc;
+                       // test save object;
+                       msg->frame_sdo.dlc = 0;
+                       object_call = map->func_data;
+                       object_call(NULL,map->data);
+                       
+                    } 
+        }else{}
+           
+};
+ }}
+
+
+
+
+void rw_rpdo_map_object1(CanOpen_msg *msg,void *obj){
 
 
     struct PDO_object *pdo = (struct PDO_object *)obj;
