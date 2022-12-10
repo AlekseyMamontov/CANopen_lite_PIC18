@@ -111,7 +111,13 @@ struct Info_Object{
     uint8_t sub_type;
     /* object_code = 0 -no data */
     uint8_t obj_code;
-};
+    
+};struct map_info{
+	uint8_t  nbit; 
+	uint8_t  sub_index;
+	uint16_t index;
+	};
+
 	
 /**/
 	
@@ -231,7 +237,9 @@ typedef union {
 		uint16_t data16;
         uint24_t data24;
 	    uint32_t data32;
-	    } data;  			
+        struct 
+        map_info map;
+       } data;  			
     }frame_sdo;
     
     struct {
@@ -285,28 +293,24 @@ struct OD_object{
 
 /*index 0000 -  0xFFFF -> the end)*/
 struct 
-OD_object* OD_search_index(CanOpen_msg *msg, struct OD_object* tab){
-    
-    uint16_t index = msg->frame_sdo.index;
+OD_object* OD_search_index(uint16_t index, struct OD_object* tab){
     
     while (tab->index != index){ 
         if(tab->index > index){tab = NULL; break;}
         tab++;}
     
  return tab;};
-
-
+OD_object* OD_search_msg_index(CanOpen_msg *msg, struct OD_object* tab){
+return  OD_search_index(msg->frame_sdo.index,tab);}
+OD_object* OD_search_map_index(CanOpen_msg *msg, struct OD_object* tab){
+return  OD_search_index(msg->frame_sdo.data.map.index,tab);}
 
 
 
 /*--------------PDO COMMUNICATION-----------------*/
 
  
-struct map_info{
-	uint8_t  nbit; 
-	uint8_t  sub_index;
-	uint16_t index;
-	};
+
 union map_data{
     struct map_info info;
 	uint32_t        data32;
@@ -416,10 +420,10 @@ void  (*object_call[8])(uint8_t ,void*);
  *  struct Info_Object *info = (struct Info_Object*)obj;
  *  
  *   if(obj){
- *      if(sub_data)
+ *      if()
  *      ....
- *      info->type = ;
- *      info->sub_code = ;
+ *      info->sub_type = ;
+ *      info->obj_code = ;
  *      info->nbit = ;
  *      info->access = ;
  *      ....
