@@ -301,14 +301,15 @@ OD_object* OD_search_index(CanOpen_msg *msg, struct OD_object* tab){
 
 /*--------------PDO COMMUNICATION-----------------*/
 
-union map_data{
-    
-	struct{
+ 
+struct map_info{
 	uint8_t  nbit; 
 	uint8_t  sub_index;
 	uint16_t index;
-	}		 parameter;
-	uint32_t data32;
+	};
+union map_data{
+    struct map_info info;
+	uint32_t        data32;
 };
 
 #define MAX_MAP_DATA 8
@@ -792,11 +793,11 @@ void rw_pdo_object(CanOpen_msg *msg,void *obj){
     if(msg){
          struct PDO_object *pdo = (struct PDO_object *)obj;
          if(msg->frame_sdo.cmd == READ_REQUEST){
-              ro_pdo_object(CanOpen_msg msg,obj);
-        }else{wo_pdo_object(CanOpen_msg msg,obj);}    
+              ro_pdo_object(msg,obj);
+        }else{wo_pdo_object(msg,obj);}    
     }else{
           struct Info_Object *info = (struct Info_Object*)obj;
-            ro_pdo_object(CanOpen_msg msg,obj);
+            ro_pdo_object(msg,obj);
             info->access = RW;             
    }
 }
@@ -841,121 +842,37 @@ void rw_rpdo_map_object(CanOpen_msg *msg,void *obj){
     if(msg->frame_sdo.cmd == READ_REQUEST){ro_map_object(msg,obj);return;}
     
     struct PDO_object *pdo = (struct PDO_object *)obj;
-    struct OD_object *map;
-    void (*object_call)(CanOpen_msg * ,void* );
     uint8_t error = ERROR_NO_CORRECT;;
     uint8_t lock = pdo->cob_id&0x80000000?1:0; 
     
     if((msg->frame_sdo.cmd&0xE0) == 0x20) error = 0;
-    if(msg->frame_sdo.dlc < 5) error = ERROR_SMALL_DATA_OBJ;
+    if(msg->frame_sdo.subindex <=MAX_MAP_DATA) error = ERROR_SUB_INDEX;
+    if(msg->frame_sdo.dlc < 5) error = ERROR_SMALL_DATA_OBJ; 
     if(!pdo) error = ERROR_SYSTEM;  
     if(!error){
         if(lock){  
-            if(msg->frame_sdo.subindex==0 &&
-               msg->frame_sdo.cmd == GET_1b){
-               pdo->pdo_map->sub_index = 
-               msg->frame_sdo.data.data8<=MAX_MAP_DATA?
-                   msg->frame_sdo.data.data8:MAX_MAP_DATA;
-               
-            }else if(msg->frame_sdo.subindex <=MAX_MAP_DATA&&
-                     msg->frame_sdo.cmd == GET_4b&&
-                     msg->frame_sdo.dlc > 7){
-                     map = OD_search_index(msg,pdo->pdo_map->node_map);
-                
-                
-                
-                
-            }else{error = ERROR_NO_CORRECT;}; 
-            
-
-      
-                       
-                // correct index and sub-index    
-                map = OD_search_index(msg,pdo->pdo_map->node_map);    
+            switch(msg->frame_sdo.subindex){
+                case 0:pdo->pdo_map->sub_index = 
+                        msg->frame_sdo.data.data8<=MAX_MAP_DATA?
+                            msg->frame_sdo.data.data8:MAX_MAP_DATA; 
+                            break;
+                default: if(msg->frame_sdo.dlc < 8){
+                            error = ERROR_SMALL_DATA_OBJ;break;};
+                            if(msg->frame_sdo.cmd == GET_4b){
+                            error = ERROR_NO_CORRECT; break;}
+                            
+                            struct OD_object *map;
+                            void (*object_call)(CanOpen_msg * ,void* );
+                            
                     
-                   if(map->index){
-                  
-                       error = msg->frame_sdo.dlc;
-                       // test save object;
-                       msg->frame_sdo.dlc = 0;
-                       object_call = map->func_data;
-                       object_call(NULL,map->data);
-                       
-                    } 
-        }else{}
+                break;}
+        }else{error = ERROR_NO_SAVE;};
+    };
+ if(error){ERR_MSG(error)}else{SDO_SAVE_OK;}
+ }else{}
            
 };
- }}
-
-
-
-
-void rw_rpdo_map_object1(CanOpen_msg *msg,void *obj){
-
-
-    struct PDO_object *pdo = (struct PDO_object *)obj;
-    struct OD_object *map;
-    void (*object_call)(CanOpen_msg * ,void* );
-    uint8_t error = 0;
-    
-    if(msg->frame_sdo.cmd == READ_REQUEST){
-    
-        if(msg->frame_sdo.subindex == 0){                 
-             msg->frame_sdo.data.data8  = pdo->pdo_map->sub_index;
-             SDO_ANSWER_1b return;}    
-    
-        if(msg->frame_sdo.subindex <= MAX_MAP_DATA){
-             msg->frame_sdo.data.data32 = 
-             pdo->pdo_map->map[(msg->frame_sdo.subindex)-1].data32;
-             SDO_ANSWER_4b return;};
-             
-        error = ERROR_SUB_INDEX;
-    
-   }else if((msg->frame_sdo.cmd&0xE0) == 0x20){
-       
-    if(pdo->cob_id&0x80000000){  
-        
-        if(msg->frame_sdo.subindex == 0){ 
-            
-          if(msg->frame_sdo.cmd == GET_1b){  
-             if(msg->frame_sdo.dlc > 4){
-                 if(msg->frame_sdo.data.data8 <=MAX_MAP_DATA){ 
-                    pdo->pdo_map->sub_index = msg->frame_sdo.data.data8;
-                 }else{error = ERROR_BIG_DATA_OBJ;};    
-             }else{error = ERROR_SMALL_DATA_OBJ;}
-          }else{error = ERROR_NO_CORRECT;} 
-          
-       }else if(msg->frame_sdo.subindex <= MAX_MAP_DATA){ 
-            
-            if(msg->frame_sdo.cmd == GET_4b){
-                if(msg->frame_sdo.dlc > 7){
-                       
-                // correct index and sub-index    
-                map = OD_search_index(msg,pdo->pdo_map->node_map);    
-                    
-                   if(map->index){
-                  
-                       error = msg->frame_sdo.dlc;
-                       // test save object;
-                       msg->frame_sdo.dlc = 0;
-                       object_call = map->func_data;
-                       object_call(NULL,map->data);
-                       
-                       
-                  
-                  
-                   }else{error = ERROR_NO_OBJECT;}  
-                }else{error = ERROR_SMALL_DATA_OBJ;} 
-           }else{error = ERROR_NO_CORRECT;} 
-       }else{error = ERROR_SUB_INDEX;};
-       
-       
-    }else{error = ERROR_NO_SAVE;}    
- }else{error = ERROR_NO_CORRECT;};
-            
-};
-
-
+ 
 
 
 
