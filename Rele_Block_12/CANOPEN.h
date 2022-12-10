@@ -239,7 +239,7 @@ typedef union {
 	    uint32_t data32;
         struct 
         map_info map;
-       } data;  			
+       }         data;  			
     }frame_sdo;
     
     struct {
@@ -293,15 +293,13 @@ struct OD_object{
 
 /*index 0000 -  0xFFFF -> the end)*/
 struct 
-OD_object* OD_search_index(uint16_t index, struct OD_object* tab){
-    
-    while (tab->index != index){ 
-        if(tab->index > index){tab = NULL; break;}
-        tab++;}
-    
- return tab;};
+OD_object* OD_search_index(uint16_t index, struct OD_object* tab){   
+    while (tab->index < index){tab++;} 
+    return tab = tab->index == index?tab:NULL;}
+
 OD_object* OD_search_msg_index(CanOpen_msg *msg, struct OD_object* tab){
 return  OD_search_index(msg->frame_sdo.index,tab);}
+
 OD_object* OD_search_map_index(CanOpen_msg *msg, struct OD_object* tab){
 return  OD_search_index(msg->frame_sdo.data.map.index,tab);}
 
