@@ -854,18 +854,34 @@ void rw_rpdo_map_object(CanOpen_msg *msg,void *obj){
     if(!error){
         if(lock){  
             switch(msg->frame_sdo.subindex){
-                case 0:pdo->pdo_map->sub_index = 
+              case 0:pdo->pdo_map->sub_index = 
                         msg->frame_sdo.data.data8<=MAX_MAP_DATA?
                             msg->frame_sdo.data.data8:MAX_MAP_DATA; 
                             break;
-                default: if(msg->frame_sdo.dlc < 8){
-                            error = ERROR_SMALL_DATA_OBJ;break;};
-                            if(msg->frame_sdo.cmd == GET_4b){
-                            error = ERROR_NO_CORRECT; break;}
+              default: if(msg->frame_sdo.dlc < 8){
+                        error = ERROR_SMALL_DATA_OBJ;break;};
+                       if(msg->frame_sdo.cmd != GET_4b){
+                        error = ERROR_NO_CORRECT; break;}
                             
-                            struct OD_object *map;
-                            void (*object_call)(CanOpen_msg * ,void* );
+                        struct OD_object *tab; 
+                        void (*object_call)(CanOpen_msg * ,void* );
+                        tab = OD_search_map_index(msg,pdo->pdo_map->node_map);
+                        
+                        if(tab == NULL){error = ERROR_NO_OBJECT;break;}
+                        if(tab->func_data == NULL){error = ERROR_NO_OBJECT;break;}
+                        struct Info_Object info;
+                        info->sub_type = msg->frame_sdo.data.map.sub_index;
+                        object_call = tab->func_data;
+                        object_call (NULL,&info);
+                        if(info->sub_type == 0){error = ERROR_SUB_INDEX;break;}
+                        
+                        if(!(info->access&WO)){error = ERROR_NO_SAVE;break;}
+                        if(info->nbit != msg->frame_sdo.data.map.nbit){
+                                    error = ERROR_NO_CORRECT; break;}
                             
+                        
+                        
+                        
                     
                 break;}
         }else{error = ERROR_NO_SAVE;};
