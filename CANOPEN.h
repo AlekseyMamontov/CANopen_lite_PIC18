@@ -866,7 +866,18 @@ void ro_map_object(CanOpen_msg *msg,void *obj){
         if(obj){  
             struct obj_info *info = (struct Info_Object*)obj;
             struct PDO_object *pdo = (struct PDO_object *)info->object;
-
+            switch(info->sub_nbit){
+                case 0:info->object = &(pdo->pdo_map->sub_index);
+                       info->sub_nbit = 0x08;info->access = RO;break;
+                default: if(info->sub_nbit <=MAX_MAP_DATA){
+                    info->object = &(pdo->pdo_map->map[info->sub_nbit-1].data32);
+                }else{info->object = NULL;
+                      info->sub_nbit = 0x00;
+                      info->access = 00;};
+                break;
+            
+            
+            }
 
         };
     }
