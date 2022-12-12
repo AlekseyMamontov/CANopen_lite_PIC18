@@ -705,21 +705,14 @@ void ro_pdo_object(CanOpen_msg *msg,void *obj){
             struct obj_info *info = (struct obj_info*)obj;
             struct PDO_object *pdo = (struct PDO_object *)info->object; 
             switch(info->sub_nbit){
-                case 0: info->object = &(pdo->sub_index);
-                        info->sub_nbit = 0x08;info->access = RO;break;
-                case 1: info->object = &(pdo->cob_id);
-                        info->sub_nbit = 0x20;info->access = RO;break;       
-                case 2: info->object = &(pdo->Transmission_type);
-                        info->sub_nbit = 0x08;info->access = RO;break;
-                case 3: info->object = &(pdo->Inhibit_time);
-                        info->sub_nbit = 0x10;info->access = RO;break;       
-                case 5: info->object = &(pdo->event_timer);
-                        info->sub_nbit = 0x10;info->access = RO;break;
+                case 0: info->object = &(pdo->sub_index);info->sub_nbit = 0x08;break;
+                case 1: info->object = &(pdo->cob_id);info->sub_nbit = 0x20;break;       
+                case 2: info->object = &(pdo->Transmission_type);info->sub_nbit = 0x08;break;
+                case 3: info->object = &(pdo->Inhibit_time);info->sub_nbit = 0x10;break;       
+                case 5: info->object = &(pdo->event_timer);info->sub_nbit = 0x10;break;
                 
-                default:info->object = NULL;
-                        info->sub_nbit = 0x00;
-                        info->access = 00;
-                        break;}          
+                default:info->object = NULL;info->sub_nbit = 0x00;break;}        
+            info->access = info->object != NULL?RO:0;
        };  
     };   
 };
