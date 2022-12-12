@@ -102,13 +102,14 @@ of UNSIGNED8 and therefore not part of the ARRAY data*/
 #define RO      0b001
 #define WO      0b010
 #define RW      0b011
-#define NO_MAP  0x80
+#define NO_MAP  0b10000000
 
 struct obj_info{
     void *  object; // -> (object->data) <- object+sub_index
     uint8_t sub_nbit;// -> sub_index ; <-nbit
     uint8_t access;
 };
+
 struct map_info{
 	uint8_t  nbit; 
 	uint8_t  sub_index;
@@ -290,8 +291,7 @@ struct OD_object{
 struct 
 OD_object* OD_search_index(uint16_t index, struct OD_object* tab){   
     while (tab->index < index){tab++;} 
-    tab = tab->index == index?tab:NULL;
-    return tab; };
+    return tab = tab->index == index?tab:NULL;};
 
 struct OD_object* OD_search_msg_index(CanOpen_msg *msg, struct OD_object* tab){
 return  OD_search_index((msg->frame_sdo.index),tab);}
@@ -302,8 +302,6 @@ return  OD_search_index(msg->frame_sdo.data.map.index,tab);}
 
 
 /*--------------PDO COMMUNICATION-----------------*/
-
- 
 
 union map_data{
     struct map_info info;
@@ -342,7 +340,7 @@ void *      node_parent;
 
 
 
-/////////////////   SDO COMMUNICATION   ////////////
+/* ---------- SDO COMMUNICATION ----------*/
 
 struct SDO_object{
 	
@@ -774,52 +772,37 @@ void wo_pdo_object(CanOpen_msg *msg,void *obj){
             struct obj_info *info = (struct obj_info*)obj;
             struct PDO_object *pdo = (struct PDO_object *)info->object;             
             switch(info->sub_nbit){
-                case 0: info->object = &(pdo->sub_index);
-                        info->sub_nbit = 0x08;info->access = RO;break;
-                case 1: info->object = &(pdo->cob_id);
-                        info->sub_nbit = 0x20;info->access = WO;break;       
-                case 2: info->object = &(pdo->Transmission_type);
-                        info->sub_nbit = 0x08;info->access = WO;break;
-                case 3: info->object = &(pdo->Inhibit_time);
-                        info->sub_nbit = 0x10;info->access = WO;break;       
-                case 5: info->object = &(pdo->event_timer);
-                        info->sub_nbit = 0x10;info->access = WO;break;
+                case 0: info->object = &(pdo->sub_index);info->sub_nbit = 0x08;break;
+                case 1: info->object = &(pdo->cob_id);info->sub_nbit = 0x20;break;       
+                case 2: info->object = &(pdo->Transmission_type);info->sub_nbit = 0x08;break;
+                case 3: info->object = &(pdo->Inhibit_time);info->sub_nbit = 0x10;break;       
+                case 5: info->object = &(pdo->event_timer);info->sub_nbit = 0x10;break;
                 
-                default:info->object = NULL;
-                        info->sub_nbit = 0x00;
-                        info->access = 00;
-                        break;}         
+                default:info->object = NULL;info->sub_nbit = 0x00;info->access = 0;
+                        break;}
+            if(info->object != NULL){info->access = info->sub_nbit == 0?RO:WO;}
        };  
     };   
 };
 
 void rw_pdo_object(CanOpen_msg *msg,void *obj){
-
-    
+   
     if(msg){
          struct PDO_object *pdo = (struct PDO_object *)obj;
          if(msg->frame_sdo.cmd == READ_REQUEST){
               ro_pdo_object(msg,obj);
-        }else{wo_pdo_object(msg,obj);}    
-    }else{
-            struct obj_info *info = (struct obj_info*)obj;
-            struct PDO_object *pdo = (struct PDO_object *)info->object;             
-            switch(info->sub_nbit){
-                case 0: info->object = &(pdo->sub_index);
-                        info->sub_nbit = 0x08;info->access = RO;break;
-                case 1: info->object = &(pdo->cob_id);
-                        info->sub_nbit = 0x20;info->access = RW;break;       
-                case 2: info->object = &(pdo->Transmission_type);
-                        info->sub_nbit = 0x08;info->access = RW;break;
-                case 3: info->object = &(pdo->Inhibit_time);
-                        info->sub_nbit = 0x10;info->access = RW;break;       
-                case 5: info->object = &(pdo->event_timer);
-                        info->sub_nbit = 0x10;info->access = RW;break;
-                
-                default:info->object = NULL;
-                        info->sub_nbit = 0x00;
-                        info->access = 00;
-                        break;}                    
+        }else{wo_pdo_object(msg,obj);}  
+         
+   }else{ struct obj_info *info = (struct obj_info*)obj;
+          struct PDO_object *pdo = (struct PDO_object *)info->object;             
+          switch(info->sub_nbit){
+            case 0: info->object = &(pdo->sub_index);info->sub_nbit = 0x08;break;
+            case 1: info->object = &(pdo->cob_id);info->sub_nbit = 0x20;break;       
+            case 2: info->object = &(pdo->Transmission_type);info->sub_nbit = 0x08;break;
+            case 3: info->object = &(pdo->Inhibit_time);info->sub_nbit = 0x10;break;       
+            case 5: info->object = &(pdo->event_timer);info->sub_nbit = 0x10;break;
+            default:info->object = NULL;info->sub_nbit = 0;info->access = 0;break;}
+            if(info->object != NULL){info->access = info->sub_nbit == 0?RO:RW;}
    }
 }
 /*------------------- pdo_map -------------*/
