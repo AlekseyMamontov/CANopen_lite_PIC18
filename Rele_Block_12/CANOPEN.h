@@ -102,23 +102,18 @@ of UNSIGNED8 and therefore not part of the ARRAY data*/
 #define RO      0b001
 #define WO      0b010
 #define RW      0b011
+#define NO_MAP  0x80
 
-struct Info_Object{    
-    uint8_t nbit;
-    uint8_t access;     
-    /* request type -> sub_index
-     * answer type = 0  no sub_index */   
-    uint8_t sub_type;
-    /* object_code = 0 -no data */
-    uint8_t obj_code;
-    
-};struct map_info{
+struct obj_info{
+    void *  object; // -> (object->data) <- object+sub_index
+    uint8_t sub_nbit;// -> sub_index ; <-nbit
+    uint8_t access;
+};
+struct map_info{
 	uint8_t  nbit; 
 	uint8_t  sub_index;
 	uint16_t index;
-	};
-
-	
+	};	
 /**/
 	
 #define PDO_DISABLED	0x80000000 // 0b1000 0000 0000 0000
@@ -295,12 +290,13 @@ struct OD_object{
 struct 
 OD_object* OD_search_index(uint16_t index, struct OD_object* tab){   
     while (tab->index < index){tab++;} 
-    return tab = tab->index == index?tab:NULL;}
+    tab = tab->index == index?tab:NULL;
+    return tab; };
 
-OD_object* OD_search_msg_index(CanOpen_msg *msg, struct OD_object* tab){
-return  OD_search_index(msg->frame_sdo.index,tab);}
+struct OD_object* OD_search_msg_index(CanOpen_msg *msg, struct OD_object* tab){
+return  OD_search_index((msg->frame_sdo.index),tab);}
 
-OD_object* OD_search_map_index(CanOpen_msg *msg, struct OD_object* tab){
+struct OD_object* OD_search_map_index(CanOpen_msg *msg, struct OD_object* tab){
 return  OD_search_index(msg->frame_sdo.data.map.index,tab);}
 
 
@@ -415,15 +411,15 @@ void  (*object_call[8])(uint8_t ,void*);
  * 
  * }else{
  * 
- *  struct Info_Object *info = (struct Info_Object*)obj;
+ *  struct obj_info *info = (struct obj_info*)obj;
  *  
  *   if(obj){
  *      if()
  *      ....
- *      info->sub_type = ;
- *      info->obj_code = ;
- *      info->nbit = ;
- *      info->access = ;
+ *      
+ *      info->object = -> object ; <-object + sub_index
+ *      info->sub_nbit = -> sub_index; <-n_bit
+ *      info->access = ro_rw_wO  \ no_map
  *      ....
  *      };
  * };
@@ -443,10 +439,9 @@ void ro_object_1b(CanOpen_msg *msg,void *obj){
        SDO_ANSWER_1b    
     }else{  
         if(obj){ 
-            struct Info_Object *info = (struct Info_Object*)obj;
-            info->sub_type = info->sub_type==0?UINT8:0;
-            info->obj_code = OD_VAR;
-            info->nbit = 0x08;
+            struct obj_info *info = (struct obj_info*)obj;
+            info->object = info->sub_nbit == 0?info->object:NULL;//sub_index=0?
+            info->sub_nbit = info->object != NULL?0x08:0;
             info->access = RO;          
        };  
     };   
@@ -465,10 +460,9 @@ void wo_object_1b(CanOpen_msg *msg,void *obj){
         SDO_SAVE_OK   
     }else{
         if(obj){  
-            struct Info_Object *info = (struct Info_Object*)obj;  
-            info->sub_type = info->sub_type==0?UINT8:0;
-            info->obj_code = OD_VAR;
-            info->nbit = 0x08;
+            struct obj_info *info = (struct obj_info*)obj;
+            info->object = info->sub_nbit == 0?info->object:NULL; 
+            info->sub_nbit = info->object != NULL?0x08:0;
             info->access = WO;
         };   
     };   
@@ -484,10 +478,9 @@ void rw_object_1b(CanOpen_msg *msg,void *obj){
         };
     }else{
         if(obj){  
-            struct Info_Object *info = (struct Info_Object*)obj;  
-            info->sub_type = info->sub_type==0?UINT8:0;
-            info->obj_code = OD_VAR;
-            info->nbit = 0x08;
+            struct obj_info *info = (struct obj_info*)obj;
+            info->object = info->sub_nbit == 0?info->object:NULL; 
+            info->sub_nbit = info->object != NULL?0x08:0;
             info->access = RW;
         };   
     };   
@@ -505,10 +498,9 @@ void ro_object_2b(CanOpen_msg *msg,void *obj){
        SDO_ANSWER_2b    
     }else{  
         if(obj){ 
-            struct Info_Object *info = (struct Info_Object*)obj;
-            info->sub_type = info->sub_type==0?UINT16:0;
-            info->obj_code = OD_VAR;
-            info->nbit = 0x10;
+            struct obj_info *info = (struct obj_info*)obj;
+            info->object = info->sub_nbit == 0?info->object:NULL; 
+            info->sub_nbit = info->object != NULL?0x10:0;
             info->access = RO;          
        };  
     };   
@@ -527,10 +519,9 @@ void wo_object_2b(CanOpen_msg *msg,void *obj){
         SDO_SAVE_OK  
     }else{
         if(obj){  
-            struct Info_Object *info = (struct Info_Object*)obj;  
-            info->sub_type = info->sub_type==0?UINT16:0;
-            info->obj_code = OD_VAR;
-            info->nbit = 0x10;
+            struct obj_info *info = (struct obj_info*)obj;
+            info->object = info->sub_nbit == 0?info->object:NULL; 
+            info->sub_nbit = info->object != NULL?0x10:0;
             info->access = WO;
         };   
     };   
@@ -546,10 +537,9 @@ void rw_object_2b(CanOpen_msg *msg,void *obj){
         };
     }else{
         if(obj){  
-            struct Info_Object *info = (struct Info_Object*)obj;  
-            info->sub_type = info->sub_type==0?UINT16:0;
-            info->obj_code = OD_VAR;
-            info->nbit = 0x10;
+            struct obj_info *info = (struct obj_info*)obj;
+            info->object = info->sub_nbit == 0?info->object:NULL; 
+            info->sub_nbit = info->object != NULL?0x10:0;
             info->access = RW;
         };   
     };   
@@ -567,10 +557,9 @@ void ro_object_3b(CanOpen_msg *msg,void *obj){
        SDO_ANSWER_3b    
     }else{  
         if(obj){ 
-            struct Info_Object *info = (struct Info_Object*)obj;
-            info->sub_type = info->sub_type==0?UINT24:0;
-            info->obj_code = OD_VAR;
-            info->nbit = 0x18;
+            struct obj_info *info = (struct obj_info*)obj;
+            info->object = info->sub_nbit == 0?info->object:NULL; 
+            info->sub_nbit = info->object != NULL?0x18:0;
             info->access = RO;          
        };  
     };   
@@ -589,10 +578,9 @@ void wo_object_3b(CanOpen_msg *msg,void *obj){
         SDO_SAVE_OK     
     }else{
         if(obj){  
-            struct Info_Object *info = (struct Info_Object*)obj;  
-            info->sub_type = info->sub_type==0?UINT24:0;
-            info->obj_code = OD_VAR;
-            info->nbit = 0x18;
+            struct obj_info *info = (struct obj_info*)obj;
+            info->object = info->sub_nbit == 0?info->object:NULL; 
+            info->sub_nbit = info->object != NULL?0x18:0;
             info->access = WO;
         };   
     };   
@@ -608,10 +596,9 @@ void rw_object_3b(CanOpen_msg *msg,void *obj){
         };
     }else{
         if(obj){  
-            struct Info_Object *info = (struct Info_Object*)obj;  
-            info->sub_type = info->sub_type==0?UINT24:0;
-            info->obj_code = OD_VAR;
-            info->nbit = 0x18;
+            struct obj_info *info = (struct obj_info*)obj;
+            info->object = info->sub_nbit == 0?info->object:NULL; 
+            info->sub_nbit = info->object != NULL?0x18:0;
             info->access = RW;
         };   
     };   
@@ -629,10 +616,9 @@ void ro_object_4b(CanOpen_msg *msg,void *obj){
        SDO_ANSWER_4b    
     }else{  
         if(obj){ 
-            struct Info_Object *info = (struct Info_Object*)obj;
-            info->sub_type = info->sub_type==0?UINT32:0;
-            info->obj_code = OD_VAR;
-            info->nbit = 0x20;
+            struct obj_info *info = (struct obj_info*)obj;
+            info->object = info->sub_nbit == 0?info->object:NULL; 
+            info->sub_nbit = info->object != NULL?0x20:0;
             info->access = RO;          
        };  
     };   
@@ -651,10 +637,9 @@ void wo_object_4b(CanOpen_msg *msg,void *obj){
         SDO_SAVE_OK     
     }else{
         if(obj){  
-            struct Info_Object *info = (struct Info_Object*)obj;  
-            info->sub_type = info->sub_type==0?UINT32:0;
-            info->obj_code = OD_VAR;
-            info->nbit = 0x20;
+            struct obj_info *info = (struct obj_info*)obj;
+            info->object = info->sub_nbit == 0?info->object:NULL; 
+            info->sub_nbit = info->object != NULL?0x20:0;
             info->access = WO;
         };   
     };   
@@ -670,17 +655,27 @@ void rw_object_4b(CanOpen_msg *msg,void *obj){
         };
     }else{
         if(obj){  
-            struct Info_Object *info = (struct Info_Object*)obj;  
-            info->sub_type = info->sub_type==0?UINT32:0;
-            info->obj_code = OD_VAR;
-            info->nbit = 0x20;
+            struct obj_info *info = (struct obj_info*)obj;
+            info->object = info->sub_nbit == 0?info->object:NULL; 
+            info->sub_nbit = info->object != NULL?0x20:0;
             info->access = RW;
         };   
     };   
 };
 
 
-/* ----------------- array data ----------------------- */
+/* ----------------- array data ---------------------- */
+struct arr_object{
+    uint8_t sub_index;
+    uint8_t type;
+    void*   array;
+};
+
+
+
+
+
+
 
 
 /* --------------- pdo_object ------------------------ */
@@ -706,16 +701,24 @@ void ro_pdo_object(CanOpen_msg *msg,void *obj){
        if(error)ERR_MSG(error);
     }else{  
         if(obj){ 
-            struct Info_Object *info = (struct Info_Object*)obj;
-            info->obj_code = OD_DEFSTRUCT;
-            info->access = RO;   
-            switch(msg->frame_sdo.subindex){
-                case 0:case 2: info->nbit = 0x08;info->sub_type = UINT8;break;
-                case 3:case 5: info->nbit = 0x10;info->sub_type = UINT16;break;
-                case 1: info->nbit = 0x20;info->sub_type = UINT32;break;
-                default:info->nbit = 0x0; 
-                        info->sub_type = 0;
-                        info->access = 0;
+            
+            struct obj_info *info = (struct obj_info*)obj;
+            struct PDO_object *pdo = (struct PDO_object *)info->object; 
+            switch(info->sub_nbit){
+                case 0: info->object = &(pdo->sub_index);
+                        info->sub_nbit = 0x08;info->access = RO;break;
+                case 1: info->object = &(pdo->cob_id);
+                        info->sub_nbit = 0x20;info->access = RO;break;       
+                case 2: info->object = &(pdo->Transmission_type);
+                        info->sub_nbit = 0x08;info->access = RO;break;
+                case 3: info->object = &(pdo->Inhibit_time);
+                        info->sub_nbit = 0x10;info->access = RO;break;       
+                case 5: info->object = &(pdo->event_timer);
+                        info->sub_nbit = 0x10;info->access = RO;break;
+                
+                default:info->object = NULL;
+                        info->sub_nbit = 0x00;
+                        info->access = 00;
                         break;}          
        };  
     };   
@@ -774,16 +777,24 @@ void wo_pdo_object(CanOpen_msg *msg,void *obj){
        if(error){ERR_MSG(error)}else{SDO_SAVE_OK;}
    }else{  
         if(obj){ 
-            struct Info_Object *info = (struct Info_Object*)obj;
-            info->obj_code = OD_DEFSTRUCT;
-            info->access = WO;
-            switch(msg->frame_sdo.subindex){
-                case 0:case 2: info->nbit = 0x08;info->sub_type = UINT8;break;
-                case 3:case 5: info->nbit = 0x10;info->sub_type = UINT16;break;
-                case 1: info->nbit = 0x20;info->sub_type = UINT32;break;
-                default:info->nbit = 0x0; 
-                        info->sub_type = 0;
-                        info->access = 0;
+            
+            struct obj_info *info = (struct obj_info*)obj;
+            struct PDO_object *pdo = (struct PDO_object *)info->object;             
+            switch(info->sub_nbit){
+                case 0: info->object = &(pdo->sub_index);
+                        info->sub_nbit = 0x08;info->access = RO;break;
+                case 1: info->object = &(pdo->cob_id);
+                        info->sub_nbit = 0x20;info->access = WO;break;       
+                case 2: info->object = &(pdo->Transmission_type);
+                        info->sub_nbit = 0x08;info->access = WO;break;
+                case 3: info->object = &(pdo->Inhibit_time);
+                        info->sub_nbit = 0x10;info->access = WO;break;       
+                case 5: info->object = &(pdo->event_timer);
+                        info->sub_nbit = 0x10;info->access = WO;break;
+                
+                default:info->object = NULL;
+                        info->sub_nbit = 0x00;
+                        info->access = 00;
                         break;}         
        };  
     };   
@@ -798,9 +809,24 @@ void rw_pdo_object(CanOpen_msg *msg,void *obj){
               ro_pdo_object(msg,obj);
         }else{wo_pdo_object(msg,obj);}    
     }else{
-          struct Info_Object *info = (struct Info_Object*)obj;
-            ro_pdo_object(msg,obj);
-            info->access = RW;             
+            struct obj_info *info = (struct obj_info*)obj;
+            struct PDO_object *pdo = (struct PDO_object *)info->object;             
+            switch(info->sub_nbit){
+                case 0: info->object = &(pdo->sub_index);
+                        info->sub_nbit = 0x08;info->access = RO;break;
+                case 1: info->object = &(pdo->cob_id);
+                        info->sub_nbit = 0x20;info->access = RW;break;       
+                case 2: info->object = &(pdo->Transmission_type);
+                        info->sub_nbit = 0x08;info->access = RW;break;
+                case 3: info->object = &(pdo->Inhibit_time);
+                        info->sub_nbit = 0x10;info->access = RW;break;       
+                case 5: info->object = &(pdo->event_timer);
+                        info->sub_nbit = 0x10;info->access = RW;break;
+                
+                default:info->object = NULL;
+                        info->sub_nbit = 0x00;
+                        info->access = 00;
+                        break;}                    
    }
 }
 /*------------------- pdo_map -------------*/
@@ -825,15 +851,21 @@ void ro_map_object(CanOpen_msg *msg,void *obj){
        ERR_MSG(error);
     }else{   
         if(obj){  
-            struct Info_Object *info = (struct Info_Object*)obj;
-                info->obj_code = OD_ARRAY; 
-                info->access = RO;
-            if(msg->frame_sdo.subindex <= MAX_MAP_DATA){
-                info->nbit = info->sub_type==0?0x08:0x20;
-                info->sub_type = info->sub_type==0?UINT8:UINT32; 
-            }else{info->nbit = 0; 
-                  info->sub_type = 0;
-                  info->access = 0;}
+            struct obj_info *info = (struct obj_info*)obj;
+            struct PDO_object *pdo = (struct PDO_object *)info->object;
+            switch(info->sub_nbit){
+                case 0:info->object = &(pdo->pdo_map->sub_index);
+                       info->sub_nbit = 0x08;info->access = RO;break;
+                default: if(info->sub_nbit <=MAX_MAP_DATA){
+                    info->object = &(pdo->pdo_map->map[info->sub_nbit-1].data32);
+                }else{info->object = NULL;
+                      info->sub_nbit = 0x00;
+                      info->access = 00;};
+                break;
+            
+            
+            }
+
         };
     }
 };
@@ -852,33 +884,35 @@ void rw_rpdo_map_object(CanOpen_msg *msg,void *obj){
     if(msg->frame_sdo.dlc < 5) error = ERROR_SMALL_DATA_OBJ; 
     if(!pdo) error = ERROR_SYSTEM;  
     if(!error){
-        if(lock){  
-            switch(msg->frame_sdo.subindex){
-              case 0:pdo->pdo_map->sub_index = 
-                        msg->frame_sdo.data.data8<=MAX_MAP_DATA?
-                            msg->frame_sdo.data.data8:MAX_MAP_DATA; 
-                            break;
-              default: if(msg->frame_sdo.dlc < 8){
-                        error = ERROR_SMALL_DATA_OBJ;break;};
-                       if(msg->frame_sdo.cmd != GET_4b){
-                        error = ERROR_NO_CORRECT; break;}
+      if(lock){  
+        switch(msg->frame_sdo.subindex){
+          case 0:pdo->pdo_map->sub_index = 
+                  msg->frame_sdo.data.data8<=MAX_MAP_DATA?
+                  msg->frame_sdo.data.data8:MAX_MAP_DATA; 
+                break;
+          default: if(msg->frame_sdo.dlc < 8){error = ERROR_SMALL_DATA_OBJ;break;};
+                   if(msg->frame_sdo.cmd != GET_4b){error = ERROR_NO_CORRECT; break;}
                             
-                        struct OD_object *tab; 
-                        void (*object_call)(CanOpen_msg * ,void* );
-                        tab = OD_search_map_index(msg,pdo->pdo_map->node_map);
+                   struct OD_object *tab; 
+                   void (*object_call)(CanOpen_msg * ,void* );
                         
-                        if(tab == NULL){error = ERROR_NO_OBJECT;break;}
-                        if(tab->func_data == NULL){error = ERROR_NO_OBJECT;break;}
-                        struct Info_Object info;
-                        info->sub_type = msg->frame_sdo.data.map.sub_index;
-                        object_call = tab->func_data;
-                        object_call (NULL,&info);
-                        if(info->sub_type == 0){error = ERROR_SUB_INDEX;break;}
-                        
-                        if(!(info->access&WO)){error = ERROR_NO_SAVE;break;}
-                        if(info->nbit != msg->frame_sdo.data.map.nbit){
-                                    error = ERROR_NO_CORRECT; break;}
-                            
+                   tab = OD_search_map_index(msg,pdo->pdo_map->node_map);
+                   if(!tab || !tab->func_data || !tab->data){
+                                            error = ERROR_NO_OBJECT;break;}                       
+                   struct obj_info info;
+                   info.sub_nbit = msg->frame_sdo.data.map.sub_index;
+                   info.object = tab->data;
+                   object_call = tab->func_data;
+                   object_call (NULL,&info);
+                   if(info.object == NULL){error = ERROR_SUB_INDEX;break;}
+                   if(!(info.access&WO)){ error = ERROR_NO_SAVE;break;}
+                   if(info.sub_nbit != msg->frame_sdo.data.map.nbit){
+                                          error = ERROR_NO_CORRECT;break;}    
+                   pdo->pdo_map->map[(msg->frame_sdo.subindex)-1].data32=
+                       msg->frame_sdo.data.data32 ;      
+                   pdo->pdo_map->quick_mapping[(msg->frame_sdo.subindex)-1] = 
+                           info.object;
+                             
                         
                         
                         
