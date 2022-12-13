@@ -229,11 +229,10 @@ typedef union {
         union{
 		uint8_t  data8;
 		uint16_t data16;
-        uint24_t data24;
-	    uint32_t data32;
-        struct 
-        map_info map;
-       }         data;  			
+        	uint24_t data24;
+	    	uint32_t data32;
+        struct map_info  map;
+           }data;  			
     }frame_sdo;
     
     struct {
