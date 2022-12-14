@@ -3,7 +3,7 @@
 CAN_Open_lite 
 <img src="CANOPEN.png" width=600 >
 <img src="PDO_mapping.png" width=600 >
------------------------------------------
+
 SDO ERROR CODE
 0503 0000h	Toggle bit not alternated.
 0504 0000h	SDO protocol timed out.
@@ -37,7 +37,7 @@ SDO ERROR CODE
 0800 0023h	Object dictionary dynamic generation fails or no object dictionary is present (e.g.
 				object dictionary is generated from file and generation fails because of an file error).
 0800 0024h	No data available
------------------------
+
 
 Block rele 220v 12 segmentov.(PIC18F25K80)
 
