@@ -1,4 +1,4 @@
-SDO ERROR CODE
+SDO ERROR CODE <br>
 0503 0000h	Toggle bit not alternated
 0504 0000h	SDO protocol timed out.
 0504 0001h	Client/server command specifier not valid or unknown.
