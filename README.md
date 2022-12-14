@@ -6,6 +6,8 @@ CAN_Open_lite
 
 Block rele 220v 12 segmentov.(PIC18F25K80)
 
-<img src="/Rele_Block_12/module.png" width=600 >
-<img src="/Rele_Block_12/module_original.png" width=600 >
+<img src="/Rele_Block_12/module.png" width=500 >
+<img src="/Rele_Block_12/module_original.jpg" width=500 >
+
+
 TFTpanel ILI9486 (PIC18F26K80)
