@@ -229,10 +229,11 @@ typedef union {
         union{
 		uint8_t  data8;
 		uint16_t data16;
-        	uint24_t data24;
-	    	uint32_t data32;
-        struct map_info  map;
-           }data;  			
+        uint24_t data24;
+	    uint32_t data32;
+        struct 
+        map_info map;
+       }         data;  			
     }frame_sdo;
     
     struct {
@@ -707,7 +708,7 @@ if(msg){
                              SDO_ANSWER_4b break;
                    default: error = ERROR_LEN_OBJECT; break;};
           break;};   
-    }; if(error)ERR_MSG(error);
+      } if(error)ERR_MSG(error);
 }else{
       if(obj){  
        struct obj_info *info = (struct obj_info*)obj;
@@ -717,23 +718,94 @@ if(msg){
        uint24_t *b24=(uint24_t*)arr->array;
        uint32_t *b32=(uint32_t*)arr->array;
        switch(info->sub_nbit){
-          case 0:info->object = &(arr->sub_index);
-                 info->sub_nbit = 0x08;info->access = RO;break;
-          default: if(info->sub_nbit <= arr->sub_index){
+          case 0:  info->object = &(arr->sub_index);
+                   info->sub_nbit = 0x08;info->access = RO;break;
+          default: if(info->sub_nbit > arr->sub_index){info->object = NULL;}
+          
              switch(arr->nbit){
                    case 0x08:info->object = b8+((info->sub_nbit)-1);break;   
                    case 0x10:info->object = b16+((info->sub_nbit)-1);break;
                    case 0x18:info->object = b24+((info->sub_nbit)-1);break;
                    case 0x20:info->object = b32+((info->sub_nbit)-1);break;
-                   default: info->object = NULL;info->sub_nbit = 0;info->access = 0; 
-                   break;};
-                  }
-          break;};
+                   default: info->object = NULL;break;}
+             
+               if(info->object){info->access = WO;info->sub_nbit = arr->nbit;
+               }else{info->sub_nbit = 0;info->access = 0;};       
+       break;}
 }}};
 
+void wo_array_object(CanOpen_msg *msg,void *obj){
 
+if(msg){
+    struct arr_object *arr = (struct arr_object*)obj;
+    
+    uint8_t error = ERROR_SDO_SERVER;
+    uint8_t  *b8=(uint8_t*)arr->array;
+    uint16_t *b16=(uint16_t*)arr->array;
+    uint24_t *b24=(uint24_t*)arr->array;
+    uint32_t *b32=(uint32_t*)arr->array;
+    
+    if((msg->frame_sdo.cmd&0xE0) == 0x20) error = 0;
+    if(msg->frame_sdo.cmd == READ_REQUEST) error = ERROR_NO_READ;
+    if(msg->frame_sdo.dlc < 5) error = ERROR_SMALL_DATA_OBJ;
+    if(!arr) error = ERROR_SYSTEM;
+      if(!error){
+        switch(arr->sub_index){
+          case 0:error = ERROR_NO_SAVE;break; 
+          default:
+               if(msg->frame_sdo.subindex > arr->sub_index)error = ERROR_SUB_INDEX;break;
+                 switch(arr->nbit){
+                   case 0x08:*(b8+((msg->frame_sdo.subindex)-1))=msg->frame_sdo.data.data8;break;   
+                   case 0x10:if(msg->frame_sdo.dlc < 6) error = ERROR_SMALL_DATA_OBJ;break;
+                             *(b16 + ((msg->frame_sdo.subindex)-1)) = msg->frame_sdo.data.data16;break;
+                   case 0x18:if(msg->frame_sdo.dlc < 7) error = ERROR_SMALL_DATA_OBJ;break;
+                             *(b24 + ((msg->frame_sdo.subindex)-1)) = msg->frame_sdo.data.data24;break; 
+                   case 0x20:if(msg->frame_sdo.dlc < 8) error = ERROR_SMALL_DATA_OBJ;break;
+                             *(b32 + ((msg->frame_sdo.subindex)-1)) = msg->frame_sdo.data.data32;break;
+                   default: error = ERROR_LEN_OBJECT; break;};
+         break;}   
+    }; if(error){ERR_MSG(error)}else{SDO_SAVE_OK};
+}else{
+      if(obj){  
+       struct obj_info *info = (struct obj_info*)obj;
+       struct arr_object *arr = (struct arr_object*)info->object;
+       uint8_t  *b8=(uint8_t*)arr->array;
+       uint16_t *b16=(uint16_t*)arr->array;
+       uint24_t *b24=(uint24_t*)arr->array;
+       uint32_t *b32=(uint32_t*)arr->array;
+       
+       switch(info->sub_nbit){
+          case 0:  info->object = &(arr->sub_index);
+                   info->sub_nbit = 0x08;info->access = RO;break;
+          default: if(info->sub_nbit > arr->sub_index){info->object = NULL;}
+          
+             switch(arr->nbit){
+                   case 0x08:info->object = b8+((info->sub_nbit)-1);break;   
+                   case 0x10:info->object = b16+((info->sub_nbit)-1);break;
+                   case 0x18:info->object = b24+((info->sub_nbit)-1);break;
+                   case 0x20:info->object = b32+((info->sub_nbit)-1);break;
+                   default: info->object = NULL;break;}
+             
+               if(info->object){info->access = WO;info->sub_nbit = arr->nbit;
+               }else{info->sub_nbit = 0;info->access = 0;};       
+       break;}
+}}};
 
-
+void rw_array_object(CanOpen_msg *msg,void *obj){
+     
+    if(msg){
+        if(msg->frame_sdo.cmd =-READ_REQUEST){ 
+            ro_array_object(msg,obj);
+        }else if((msg->frame_sdo.cmd&0xE0) == 0x20){wo_array_object(msg,obj);
+        }else{ERR_MSG(ERROR_SDO_SERVER);}
+    }else{
+        if(obj){ 
+            struct obj_info *info = (struct obj_info*)obj;
+            wo_array_object(msg,obj);
+            info->access = RW;
+        };   
+    };   
+};
 
 
 /* --------------- pdo_object ------------------------ */
