@@ -343,13 +343,14 @@ void map_object_processing(struct PDO_object* pdo){
    
    uint8_t sum_nbit = 0, sub_index = 0;
    
-   if(pdo->pdo_map->sub_index > MAX_MAP_DATA) pdo->pdo_map->sub_index = MAX_MAP_DATA;
+   if(pdo->pdo_map->sub_index > MAX_MAP_DATA)
+                    pdo->pdo_map->sub_index = MAX_MAP_DATA;
 
-   for(uint8_t i=0; i < pdo->pdo_map->sub_index;i++){      
-       if(!(pdo->pdo_map->map[i].info.index)||
-          !(pdo->pdo_map->map[i].info.nbit )||
-          !(pdo->pdo_map->quick_mapping[i])) break;
-       sum_nbit += pdo->pdo_map->map[i].info.nbit;
+   while(sub_index < pdo->pdo_map->sub_index){      
+       if(!(pdo->pdo_map->map[sub_index].info.index)||
+          !(pdo->pdo_map->map[sub_index].info.nbit )||
+          !(pdo->pdo_map->quick_mapping[sub_index])) break;
+       sum_nbit += pdo->pdo_map->map[sub_index].info.nbit;
        if(sum_nbit > MAX_MAP_NBIT) break; 
        sub_index ++;
    };
