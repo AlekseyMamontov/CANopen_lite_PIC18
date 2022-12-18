@@ -115,7 +115,7 @@ struct map_info{
 	uint8_t  sub_index;
 	uint16_t index;
 	};	
-/**/
+
 	
 #define PDO_DISABLED	0x80000000 // 0b1000 0000 0000 0000
 #define PDO_is_transmit	0x80 	   //0b1000 0000
@@ -239,21 +239,21 @@ typedef union {
     struct {
         uint8_t  idType; 
         union {
-                uint32_t id;
+            uint32_t id;
           struct{
-                uint16_t func_id;
-                uint8_t  none;
-                uint8_t  status;
+            uint16_t func_id;
+            uint8_t  none;
+            uint8_t  status;
                  }       _id;
           struct{
-                uint8_t id_node: 7;
-                uint8_t  func: 4;
-                uint8_t      : 5;
-                uint8_t      : 8;
-                uint8_t      : 5;
-                uint8_t  ext : 1;
-                uint8_t      : 1;
-                uint8_t  lock: 1;                                
+            uint8_t id_node: 7;
+            uint8_t  func: 4;
+            uint8_t      : 5;
+            uint8_t      : 8;
+            uint8_t      : 5;
+            uint8_t  ext : 1;
+            uint8_t      : 1;
+            uint8_t  lock: 1;                                
                  }      bit_id;        
               }  cob;	   
         uint8_t  dlc;	  
@@ -315,11 +315,11 @@ union map_data{
 	uint32_t        data32;
 };
 struct PDO_mapping {
-    uint8_t                sub_index;
-    union map_data         map[MAX_MAP_DATA];
+    uint8_t           sub_index;
+    union map_data    map[MAX_MAP_DATA];
     // quick access to the map
-    void *                 quick_mapping[MAX_MAP_DATA];
-    struct OD_object*      node_map;
+    void *            quick_mapping[MAX_MAP_DATA];
+    struct OD_object* node_map;
 };
 struct PDO_object{   
 uint8_t     type; // RX = 0,TX = 1
@@ -337,18 +337,23 @@ void *      node_parent;
 uint8_t     data[8];
 };
 
-
+#define MAX_MAP_NBIT MAX_MAP_DATA*8
 // test size > 40 ? sub_index = 0
 void map_object_processing(struct PDO_object* pdo){
-   uint8_t sum_nbit = 0; 
-   for(uint8_t i=0; i < pdo->pdo_map->sub_index;i++){
-    sum_nbit += pdo->pdo_map->map[i].info.nbit;
-    if(  sum_nbit > 0x40 || 
-       !(pdo->pdo_map->map[i].info.index)||
-       !(pdo->pdo_map->map[i].info.nbit )){
-        
-        pdo->pdo_map->sub_index = i?(i-1):0;break;}
+   
+   uint8_t sum_nbit = 0, sub_index = 0;
+   
+   if(pdo->pdo_map->sub_index > MAX_MAP_DATA) pdo->pdo_map->sub_index = MAX_MAP_DATA;
+
+   for(uint8_t i=0; i < pdo->pdo_map->sub_index;i++){      
+       if(!(pdo->pdo_map->map[i].info.index)||
+          !(pdo->pdo_map->map[i].info.nbit )||
+          !(pdo->pdo_map->quick_mapping[i])) break;
+       sum_nbit += pdo->pdo_map->map[i].info.nbit;
+       if(sum_nbit > MAX_MAP_NBIT) break; 
+       sub_index ++;
    };
+   pdo->pdo_map->sub_index = sub_index;
 };
 
 void process_the_RxPDO_message(struct PDO_object* pdo){
