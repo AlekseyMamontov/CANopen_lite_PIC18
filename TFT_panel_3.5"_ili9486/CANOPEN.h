@@ -305,11 +305,16 @@ return  OD_search_index(msg->frame_sdo.data.map.index,tab);}
 #define PDO_is_TX	0x80 	   //0b1000 0000
 #define PDO_calculate_n	0x700 // 0b111 0000 0000
 #define PDO_mask_addr	0x7FF // 0b0111 1111 1111
+
 #define RXPDO 0
 #define TXPDO 1
-#define MAX_MAP_DATA 8
-#define PDO_INIT 01
 
+#define MAX_MAP_DATA 8
+#define MAX_MAP_NBIT MAX_MAP_DATA*8 //warning 8bit x n_byte
+
+
+#define PDO_INIT    0b00000001
+#define NEW_MSG_PDO 0b00000010
 
 union map_data{
     struct map_info info;
@@ -341,8 +346,7 @@ void (*process_map)(struct PDO_object*);
 uint8_t     data[8];
 };
 
-//warning 8bit x n_byte
-#define MAX_MAP_NBIT MAX_MAP_DATA*8
+
 
 void map_object_processing(struct PDO_object* pdo){
    
@@ -425,6 +429,18 @@ void process_the_PDO_message(struct PDO_object* pdo){
     if(pdo->type == TXPDO)process_the_TxPDO_message(pdo);
     else process_the_RxPDO_message(pdo);
 };
+
+
+
+void copy_rxPDO_message_to_array(CanOpen_msg* msg,struct PDO_object* pdo){
+    if(!(msg->can_frame.dlc)) return;
+    for(uint8_t i= 0; i< MAX_MAP_DATA ;i++){
+        pdo->data[i] = i < msg->can_frame.dlc?msg->array[i+7]:0;}
+    pdo->status = pdo->status | NEW_MSG_PDO;
+};
+
+
+
 
 
 
@@ -571,6 +587,7 @@ void rw_object_1b(CanOpen_msg *msg,void *obj){
     };   
 };
 /*-----------------------  2 byte  ------------------------*/
+
 void ro_object_2b(CanOpen_msg *msg,void *obj){
     
     if(msg){
@@ -630,6 +647,7 @@ void rw_object_2b(CanOpen_msg *msg,void *obj){
     };   
 };
 /*-----------------------  3 byte  ------------------------*/
+
 void ro_object_3b(CanOpen_msg *msg,void *obj){
     
     if(msg){
@@ -689,6 +707,7 @@ void rw_object_3b(CanOpen_msg *msg,void *obj){
     };   
 };
 /*-----------------------  4 byte  ------------------------*/
+
 void ro_object_4b(CanOpen_msg *msg,void *obj){
     
     if(msg){
@@ -749,7 +768,7 @@ void rw_object_4b(CanOpen_msg *msg,void *obj){
 };
 
 
-/* ----------------- array data ---------------------- */
+/* ----------------------- array data ---------------------- */
 
 struct arr_object{
     uint8_t sub_index;
@@ -874,7 +893,7 @@ if(msg){
 void rw_array_object(CanOpen_msg *msg,void *obj){
      
     if(msg){
-        if(msg->frame_sdo.cmd =READ_REQUEST){ 
+        if(msg->frame_sdo.cmd = READ_REQUEST){ 
             ro_array_object(msg,obj);
         }else if((msg->frame_sdo.cmd&0xE0) == 0x20){wo_array_object(msg,obj);
         }else{ERR_MSG(ERROR_SDO_SERVER);}
@@ -888,7 +907,7 @@ void rw_array_object(CanOpen_msg *msg,void *obj){
 };
 
 
-/* --------------- pdo_object ------------------------ */
+/* ------------------------- pdo_object ------------------------ */
 
 void ro_pdo_object(CanOpen_msg *msg,void *obj){
     
@@ -1019,7 +1038,7 @@ void rw_pdo_object(CanOpen_msg *msg,void *obj){
             if(info->object != NULL){info->access = sub_index?RW:RO;}
    }
 }
-/*------------------- pdo_map -------------*/
+/*------------------------- pdo_map object ------------------------------*/
 
 void ro_map_object(CanOpen_msg *msg,void *obj){
     if(msg){
@@ -1114,7 +1133,7 @@ void rw_rpdo_map_object(CanOpen_msg *msg,void *obj){
                    pdo->pdo_map->quick_mapping[(msg->frame_sdo.subindex)-1] = 
                            info.object;
                    
-                   map_object_processing(pdo); //test->map
+                   map_object_processing(pdo); //test mapping object
                    
                 break;}
         }else{error = ERROR_NO_SAVE;};
@@ -1137,15 +1156,9 @@ void rw_rpdo_map_object(CanOpen_msg *msg,void *obj){
     }
            
 };
- 
 
 
-
-//////////// function obiect call ////////////
-
-
-
-
+/* ------------------- function obiect call -------------------*/
 
 
 void NOP_call(uint8_t code,void* data){};
@@ -1218,7 +1231,7 @@ void SYNC_control(uint8_t code,void* data){};
 void TIME_control(uint8_t code,void* data){};
 
 
-////////////////////// xPDO COMMUNICATION /////////////////
+/*----------------- xPDO COMMUNICATION ---------------------*/
 
 /* NodeID
  * 0...11 11-bit CAN-ID
@@ -1230,67 +1243,17 @@ void TIME_control(uint8_t code,void* data){};
                 1 PDO does not exist / is not valid
 */	
 
-#define NEW_MSG_PDO 0x01
+
 
 #define RxPDO1 RPDO1-3
 
 void RPDO1_call(uint8_t code,void* data){
     
     struct xCanOpen *node = (struct xCanOpen *)data;
-    uint8_t lock = node->pdo[RxPDO1]->cob_id&0x80000000?1:0;
-    uint32_t * data32;
+    uint8_t  lock = node->pdo[RxPDO1]->cob_id&0x80000000?1:0;
+    uint32_t *data32;
     uint8_t  error = 0;
-     
-    switch(code){
-    
-        case FUNC_MSG:
-            
-            if (node->mode != OPERATIONAL) break;
-            if ( lock) break;            
-            if ( node->current_msg->can_frame.id != 
-                (node->pdo[RxPDO1]->cob_id & 0x7ff)) break;
-            
-            for(uint8_t i= 0;i<8;i++){
-                
-            node->pdo[RxPDO1]->data[i] = 
-                    i < (node->current_msg->can_frame.dlc)?
-                            node->current_msg->array[i+7]:0;};
-                            
-            node->pdo[RxPDO1]->status =
-                    node->pdo[RxPDO1]->status | NEW_MSG_PDO;
-                       
-         break;
-                
-            
-        case FUNC_SYSTEM:
-            
-           if(lock) break;
-           
-           switch(node->pdo[RxPDO1]->Transmission_type){
-               
-               case 0xFE:
-                   break;
-                   
-               case 0xFF:
-                   break;
-                   
-               default:
-              
-                   if (node->pdo[RxPDO1]->Transmission_type > 0xF0) break;
-                   
-                   
-                   
-                   
-               
-           };
-           
-         break;         
-         
-        default:
-        break;
-            
-    };
-    
+  
 };
 
 
