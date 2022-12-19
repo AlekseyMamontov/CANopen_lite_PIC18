@@ -325,6 +325,7 @@ struct PDO_mapping {
 struct PDO_object{   
 uint8_t     type; // RX = 0,TX = 1
 uint8_t     status; 
+
 // visible block
 uint8_t		sub_index ;
 uint8_t		Transmission_type;
@@ -332,6 +333,7 @@ uint32_t	cob_id ;
 uint16_t	Inhibit_time; 	
 uint16_t	event_timer;
 // quick access to the structure map
+
 struct 
 PDO_mapping* pdo_map;
 void *      node_parent;
@@ -420,8 +422,8 @@ void process_the_TxPDO_message(struct PDO_object* pdo){
 };
 
 void process_the_PDO_message(struct PDO_object* pdo){
-    if(pdo->type == TXPDO) process_the_TxPDO_message(pdo);
-   else process_the_RxPDO_message(pdo);
+    if(pdo->type == TXPDO)process_the_TxPDO_message(pdo);
+    else process_the_RxPDO_message(pdo);
 };
 
 
@@ -748,6 +750,7 @@ void rw_object_4b(CanOpen_msg *msg,void *obj){
 
 
 /* ----------------- array data ---------------------- */
+
 struct arr_object{
     uint8_t sub_index;
     uint8_t nbit;
@@ -1071,7 +1074,9 @@ void rw_rpdo_map_object(CanOpen_msg *msg,void *obj){
         switch(msg->frame_sdo.subindex){
           case 0:if(msg->frame_sdo.cmd != GET_1b){error = ERROR_SDO_SERVER;break;}              
                  pdo->pdo_map->sub_index = msg->frame_sdo.data.data8<=MAX_MAP_DATA?
-                 msg->frame_sdo.data.data8:MAX_MAP_DATA; break;
+                 msg->frame_sdo.data.data8:MAX_MAP_DATA;
+                 map_object_processing(pdo); //test->map
+                 break;
           default: if(msg->frame_sdo.dlc < 8){error = ERROR_SMALL_DATA_OBJ;break;};
                    if(msg->frame_sdo.cmd != GET_4b){error = ERROR_SDO_SERVER; break;}
                    if(!(msg->frame_sdo.data.map.nbit)){error = ERROR_SMALL_DATA_OBJ;break;}
@@ -1100,7 +1105,7 @@ void rw_rpdo_map_object(CanOpen_msg *msg,void *obj){
                        if(!(info.access&WO)){error = ERROR_OBJECT_PDO;break;} 
                    }else if(pdo->type == TXPDO){
                        if(!(info.access&RO)){error = ERROR_OBJECT_PDO;break;}
-                   }else{error = ERROR_SYSTEM;};
+                   }else{error = ERROR_SYSTEM;break;};
                       
                    if(info.sub_nbit != msg->frame_sdo.data.map.nbit){
                                           error = ERROR_LEN_OBJECT;break;}    
@@ -1109,7 +1114,7 @@ void rw_rpdo_map_object(CanOpen_msg *msg,void *obj){
                    pdo->pdo_map->quick_mapping[(msg->frame_sdo.subindex)-1] = 
                            info.object;
                    
-                   //map_object_processing(pdo);
+                   map_object_processing(pdo); //test->map
                    
                 break;}
         }else{error = ERROR_NO_SAVE;};
