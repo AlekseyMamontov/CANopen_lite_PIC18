@@ -300,6 +300,7 @@ return  OD_search_index(msg->frame_sdo.data.map.index,tab);}
 
 
 /*--------------PDO COMMUNICATION-----------------*/
+
 #define PDO_DISABLED	0x80000000 // 0b1000 0000 0000 0000
 #define PDO_is_TX	0x80 	   //0b1000 0000
 #define PDO_calculate_n	0x700 // 0b111 0000 0000
@@ -324,6 +325,7 @@ struct PDO_mapping {
 struct PDO_object{   
 uint8_t     type; // RX = 0,TX = 1
 uint8_t     status; 
+
 // visible block
 uint8_t		sub_index ;
 uint8_t		Transmission_type;
@@ -331,14 +333,17 @@ uint32_t	cob_id ;
 uint16_t	Inhibit_time; 	
 uint16_t	event_timer;
 // quick access to the structure map
+
 struct 
 PDO_mapping* pdo_map;
 void *      node_parent;
+void (*process_map)(struct PDO_object*);
 uint8_t     data[8];
 };
 
+//warning 8bit x n_byte
 #define MAX_MAP_NBIT MAX_MAP_DATA*8
-// test size > 40 ? sub_index = 0
+
 void map_object_processing(struct PDO_object* pdo){
    
    uint8_t sum_nbit = 0, sub_index = 0;
@@ -358,148 +363,72 @@ void map_object_processing(struct PDO_object* pdo){
 };
 
 void process_the_RxPDO_message(struct PDO_object* pdo){
-    uint8_t  *read8,*write8 ,
-              sum_nbit = 0,max_nbit = 8*MAX_MAP_DATA;//warning 8bit x n_byte
-    uint16_t *read16,*write16;
-    uint24_t *read24,*write24;
-    uint32_t *read32,*write32;
-    void* data = pdo->data;
-    if(!(pdo->pdo_map->sub_index))return;
-    for(uint8_t i =0;i < pdo->pdo_map->sub_index || 
-                     i < MAX_MAP_DATA ||
-                     sum_nbit < max_nbit;i++){
     
-        if(pdo->pdo_map->quick_mapping[i] == NULL) break;
-        
-        switch(pdo->pdo_map->map[i].info.nbit){ 
-            case 0x08: read8 = data; 
-                       write8 = pdo->pdo_map->quick_mapping[i];
-                       *write8 = *read8; //*((uint8_t*)data);
-                       data = ++read8;break;
-            case 0x10: read16 = data; 
-                       write16 = pdo->pdo_map->quick_mapping[i];
-                       *write16 = *read16;
-                       data = ++read16;break;
-            case 0x18: read24 = data; 
-                       write24 = pdo->pdo_map->quick_mapping[i];
-                       *write24 = *read24;
-                       data = ++read24;break;
-            case 0x20: read32 = data; 
-                       write32 = pdo->pdo_map->quick_mapping[i];
-                       *write32 = *read32;
-                       data = ++read32;break;
-            default: return; break;
-        }; sum_nbit += pdo->pdo_map->map[i].info.nbit;
+    uint8_t  sum_nbit = 0,index =0,addr=0;
+    uint8_t* data = pdo->data;
+    
+    if(!(pdo->pdo_map->sub_index))return;
+    if(pdo->pdo_map->sub_index > MAX_MAP_DATA)
+                    pdo->pdo_map->sub_index = MAX_MAP_DATA;
+    
+    while(index < pdo->pdo_map->sub_index){
+    
+        sum_nbit += pdo->pdo_map->map[index].info.nbit;
+        if(sum_nbit > MAX_MAP_NBIT) break;
+        if(!(pdo->pdo_map->quick_mapping[index])) break;    
+            switch(pdo->pdo_map->map[index].info.nbit){   
+                case 0x08: *((uint8_t*)(pdo->pdo_map->quick_mapping[index])) = 
+                            *(data+addr);addr++;break;
+                case 0x10: *((uint16_t*)(pdo->pdo_map->quick_mapping[index])) = 
+                            *((uint16_t*)(data+addr));addr +=2;break;
+                case 0x18: *((uint24_t*)(pdo->pdo_map->quick_mapping[index])) = 
+                            *((uint24_t*)(data+addr));addr +=3;break;
+                case 0x20: *((uint32_t*)(pdo->pdo_map->quick_mapping[index])) = 
+                            *((uint32_t*)(data+addr));addr +=4;break;
+                default: return; break;
+        }; index++;
     };    
 };
-void process_the_RxPDO_message2(struct PDO_object* pdo){
-    uint8_t  sum_nbit = 0,max_nbit = 8*MAX_MAP_DATA;//warning 8bit x n_byte
-    void* data = pdo->data;
-    if(!(pdo->pdo_map->sub_index))return;
-    for(uint8_t i =0;i < pdo->pdo_map->sub_index || 
-                     i < MAX_MAP_DATA ||
-                     sum_nbit < max_nbit;){
-    
-        if(pdo->pdo_map->quick_mapping[i] == NULL) break;
-        
-        switch(pdo->pdo_map->map[i].info.nbit){ 
-            
-          case 0x08: *((uint8_t*)(pdo->pdo_map->quick_mapping[i])) = 
-                        pdo->data[i];i++;break;
-          case 0x10: *((uint16_t*)(pdo->pdo_map->quick_mapping[i])) = 
-                        *((uint16_t*)(&(pdo->data[i])));i +=2;break;
-          case 0x18: *((uint24_t*)(pdo->pdo_map->quick_mapping[i])) = 
-                        *((uint24_t*)(&(pdo->data[i])));i +=3;break;
-          case 0x20: *((uint32_t*)(pdo->pdo_map->quick_mapping[i])) = 
-                        *((uint32_t*)(&(pdo->data[i])));i +=4;break;
-            default: return; break;
-        }; sum_nbit += pdo->pdo_map->map[i].info.nbit;
-    };    
-};
-
 void process_the_TxPDO_message(struct PDO_object* pdo){
     
-    uint8_t  *read8,*write8 ,
-              sum_nbit = 0,max_nbit = 8*MAX_MAP_DATA;//warning 8bit x n_byte
-    uint16_t *read16,*write16;
-    uint24_t *read24,*write24;
-    uint32_t *read32,*write32;
-    void* data = pdo->data;
+    uint8_t  sum_nbit = 0,index =0,addr=0;
+    uint8_t* data = pdo->data;
     
-    if(!(pdo->pdo_map->sub_index) || !data)return;
-    for(uint8_t i =0;i < pdo->pdo_map->sub_index || 
-                     i < MAX_MAP_DATA ||
-                     sum_nbit < max_nbit;i++){
-    
-        if(pdo->pdo_map->quick_mapping[i] == NULL) break;
-        
-        switch(pdo->pdo_map->map[i].info.nbit){ 
-            case 0x08: write8 = data; 
-                       read8 = pdo->pdo_map->quick_mapping[i];
-                       *write8 = *read8;
-                       data = ++write8;break;
-            case 0x10: write16 = data; 
-                       read16 = pdo->pdo_map->quick_mapping[i];
-                       *write16 = *read16;
-                       data = ++write16;break;
-            case 0x18: write24 = data; 
-                       read24 = pdo->pdo_map->quick_mapping[i];
-                       *write24 = *read24;
-                       data = ++write24;break;
-            case 0x20: write32 = data; 
-                       read32 = pdo->pdo_map->quick_mapping[i];
-                       *write32 = *write32;
-                       data = ++write32;break;
-            default: return; break;
-        }; sum_nbit += pdo->pdo_map->map[i].info.nbit;
-    };    
-};
-
-void process_the_TxPDO_message2(struct PDO_object* pdo){
-    
-    uint8_t  sum_nbit = 0,max_nbit = 8*MAX_MAP_DATA;//warning 8bit x n_byte
-  
     if(!(pdo->pdo_map->sub_index))return;
+    if(pdo->pdo_map->sub_index > MAX_MAP_DATA)
+                    pdo->pdo_map->sub_index = MAX_MAP_DATA;
     
-    for(uint8_t i =0;i < pdo->pdo_map->sub_index || 
-                     i < MAX_MAP_DATA ||
-                     sum_nbit < max_nbit;){
+    while(index < pdo->pdo_map->sub_index){
     
-        if(pdo->pdo_map->quick_mapping[i] == NULL) break;
-        
-        switch(pdo->pdo_map->map[i].info.nbit){ 
-            
-          case 0x08: pdo->data[i] = *((uint8_t*)(pdo->pdo_map->quick_mapping[i])); 
-                     ;i++;break;
-          case 0x10: *((uint16_t*)(&(pdo->data[i]))) =
-                     *((uint16_t*)(pdo->pdo_map->quick_mapping[i]));i+=2;break;
-          case 0x18: *((uint24_t*)(&(pdo->data[i]))) =
-                     *((uint24_t*)(pdo->pdo_map->quick_mapping[i]));i+=3;break;
-          case 0x20: *((uint32_t*)(&(pdo->data[i]))) = 
-                     *((uint32_t*)(pdo->pdo_map->quick_mapping[i]));i+=4;break;
-            default: return; break;
-        }; sum_nbit += pdo->pdo_map->map[i].info.nbit;
+        sum_nbit += pdo->pdo_map->map[index].info.nbit;
+        if(sum_nbit > MAX_MAP_NBIT) break;
+        if(!(pdo->pdo_map->quick_mapping[index])) break;    
+            switch(pdo->pdo_map->map[index].info.nbit){   
+                case 0x08: *(data+addr) = 
+                            *((uint8_t*)(pdo->pdo_map->quick_mapping[index]));
+                            addr++;break;
+                case 0x10: *((uint16_t*)(data+addr))=
+                            *((uint16_t*)(pdo->pdo_map->quick_mapping[index]));
+                            addr +=2;break;
+                case 0x18: *((uint24_t*)(data+addr))=
+                           *((uint24_t*)(pdo->pdo_map->quick_mapping[index]));
+                            addr +=3;break;
+                case 0x20: *((uint32_t*)(data+addr))=
+                           *((uint32_t*)(pdo->pdo_map->quick_mapping[index])); 
+                            addr +=4;break;
+                default: return; break;
+        }; index++;
     };    
+};
+
+void process_the_PDO_message(struct PDO_object* pdo){
+    if(pdo->type == TXPDO)process_the_TxPDO_message(pdo);
+    else process_the_RxPDO_message(pdo);
 };
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/* ---------- SDO COMMUNICATION ----------*/
+/* ---------------------- SDO COMMUNICATION -----------------*/
 
 struct SDO_object{
 	
@@ -821,6 +750,7 @@ void rw_object_4b(CanOpen_msg *msg,void *obj){
 
 
 /* ----------------- array data ---------------------- */
+
 struct arr_object{
     uint8_t sub_index;
     uint8_t nbit;
@@ -1144,7 +1074,9 @@ void rw_rpdo_map_object(CanOpen_msg *msg,void *obj){
         switch(msg->frame_sdo.subindex){
           case 0:if(msg->frame_sdo.cmd != GET_1b){error = ERROR_SDO_SERVER;break;}              
                  pdo->pdo_map->sub_index = msg->frame_sdo.data.data8<=MAX_MAP_DATA?
-                 msg->frame_sdo.data.data8:MAX_MAP_DATA; break;
+                 msg->frame_sdo.data.data8:MAX_MAP_DATA;
+                 map_object_processing(pdo); //test->map
+                 break;
           default: if(msg->frame_sdo.dlc < 8){error = ERROR_SMALL_DATA_OBJ;break;};
                    if(msg->frame_sdo.cmd != GET_4b){error = ERROR_SDO_SERVER; break;}
                    if(!(msg->frame_sdo.data.map.nbit)){error = ERROR_SMALL_DATA_OBJ;break;}
@@ -1173,7 +1105,7 @@ void rw_rpdo_map_object(CanOpen_msg *msg,void *obj){
                        if(!(info.access&WO)){error = ERROR_OBJECT_PDO;break;} 
                    }else if(pdo->type == TXPDO){
                        if(!(info.access&RO)){error = ERROR_OBJECT_PDO;break;}
-                   }else{error = ERROR_SYSTEM;};
+                   }else{error = ERROR_SYSTEM;break;};
                       
                    if(info.sub_nbit != msg->frame_sdo.data.map.nbit){
                                           error = ERROR_LEN_OBJECT;break;}    
@@ -1182,7 +1114,7 @@ void rw_rpdo_map_object(CanOpen_msg *msg,void *obj){
                    pdo->pdo_map->quick_mapping[(msg->frame_sdo.subindex)-1] = 
                            info.object;
                    
-                   //map_object_processing(pdo);
+                   map_object_processing(pdo); //test->map
                    
                 break;}
         }else{error = ERROR_NO_SAVE;};
