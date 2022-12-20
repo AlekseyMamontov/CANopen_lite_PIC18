@@ -482,26 +482,8 @@ uint8_t		node_id;
 #define SDO_SAVE_OK     msg->frame_sdo.cmd = OK_SAVE;\
                         msg->frame_sdo.dlc = 4;\
 
-/* ------------- STRUCT CAN NODE ------------*/
 
-struct xCanOpen{
-
-uint8_t              cob_id; /*id */
-uint8_t                mode; /*pre-orintal etc.*/
-
-CanOpen_msg*    current_msg;
-
-struct OD_object *      map;
-
-struct PDO_object*   pdo[8];
-struct SDO_object*   sdo[2];
-
-uint8_t Sync_object [8];
-
-void  (*object_call[8])(uint8_t ,void*);
-};
-
-/* ------------- FUNCTION OBJECT ------------*/
+/* -------------------  SDO_OBJECT -------------------*/
 /*
  * function skeleton
  * void name ((CanOpen_msg *msg,void *obj){
@@ -1157,14 +1139,37 @@ void rw_rpdo_map_object(CanOpen_msg *msg,void *obj){
            
 };
 
+/* ------------------ STRUCT CAN NODE ------------------*/
 
-/* ------------------- function obiect call -------------------*/
+#define n_FUNC_COMMAND 0x0f
+
+struct xCanOpen{
+
+uint8_t              cob_id; /*id */
+uint8_t                mode; /*pre-orintal etc.*/
+
+CanOpen_msg*    current_msg;
+
+struct OD_object *      map;
+
+struct PDO_object*   pdo[8];
+struct SDO_object*   sdo[2];
+
+uint8_t Sync_object [8];
+
+void  (*func_call[n_FUNC_COMMAND])(uint8_t ,void*);
+
+
+
+};
+
+/* ------------ function obiect call -----------*/
 
 
 void NOP_call(uint8_t code,void* data){};
 
 
-//-------------NMT_control----------------------
+/*---------------  NMT_control ----------------*/
 
 /* NMT command  000_DLC_CS_NodeID
  * DLC = 2 byte
@@ -1191,69 +1196,77 @@ void NMT_control(uint8_t code,void* data){
         if ((0x7F & node->current_msg->can_frame.id) == 0){
              
             if(node->current_msg->can_frame.data1 == 0 ||
-               node->current_msg->can_frame.data1== node->cob_id){
+               node->current_msg->can_frame.data1 == node->cob_id){
                         
                 switch(node->current_msg->can_frame.data0){
                         
-                    case START_REMOTE_NODE:
-                      node->mode = OPERATIONAL;   
-                    break;
-                  
-                    case STOP_REMOTE_NODE:
-                      node->mode = STOPPED ;
-                    break;
-                      
-                    case ENTER_PRE_OPERATIONAL:
-                      node->mode = PRE_OPERATIONAL;
-                    break;
-                   
-                    case RESET_APPLICATION:
-                       node->mode = BOOT;  
-                    break; 
+                    case START_REMOTE_NODE:     node->mode = OPERATIONAL;break;
+                    case STOP_REMOTE_NODE:      node->mode = STOPPED ;break;  
+                    case ENTER_PRE_OPERATIONAL: node->mode = PRE_OPERATIONAL;break;
+                    case RESET_APPLICATION:     node->mode = BOOT; break;
+                    case RESET_COMMUNICATION:   node->mode = BOOT; break;
                     
-                    case RESET_COMMUNICATION:                       
-                         node->mode = BOOT;
-                    break;
-                    
-                    default:
-                    break;                               
+                    default:break;                               
                 };
             };                    
         };
+};
+/*---------------------- Sync -----------------------*/
+
+void SYNC_control(uint8_t code,void* data){
+    struct xCanOpen *node = (struct xCanOpen *)data;
 
 };
-//---------------------------------------------
+    
+/*--------------------- Time ------------------------*/
+
+void TIME_control(uint8_t code,void* data){
+    struct xCanOpen *node = (struct xCanOpen *)data;
+};
 
 
-//
-void SYNC_control(uint8_t code,void* data){};
-//
-void TIME_control(uint8_t code,void* data){};
-
-
-/*----------------- xPDO COMMUNICATION ---------------------*/
-
-/* NodeID
- * 0...11 11-bit CAN-ID
- * 0...28 29-bit CAN-ID
- * 29     frame
- * 30     reserved
- * 
- * 31     valid 0 PDO exists / is valid
-                1 PDO does not exist / is not valid
-*/	
+/*--------------------- xPDO ------------------------*/
 
 
 
 #define RxPDO1 RPDO1-3
 
-void RPDO1_call(uint8_t code,void* data){
+void rxPDO_control(uint8_t code,void* data){
     
     struct xCanOpen *node = (struct xCanOpen *)data;
-    uint8_t  lock = node->pdo[RxPDO1]->cob_id&0x80000000?1:0;
+    if(code > 4) return;
+    uint8_t  lock = node->pdo[code]->cob_id&0x80000000?1:0;
     uint32_t *data32;
     uint8_t  error = 0;
-  
+    
+    switch(node->mode){
+    
+        case PRE_OPERATIONAL:
+            
+            
+            
+            
+            
+            
+            
+        break;
+            
+        case OPERATIONAL:
+            
+            
+            
+            
+            
+            
+            
+            
+            
+        break;
+        default:
+        break;
+    
+    
+    };
 };
 
 
