@@ -5,7 +5,9 @@
 
 uint8_t STATUS_NMT = BOOT;
 
-struct PDO_object rx_pdo1,rx_pdo2,rx_pdo3,rx_pdo4,
+struct PDO_object 
+       rx_pdo1,
+       rx_pdo2,rx_pdo3,rx_pdo4,
             tx_pdo1,tx_pdo2,tx_pdo3,tx_pdo4;
 
 struct xCanOpen Rele = {
@@ -28,14 +30,7 @@ struct xCanOpen Rele = {
 
     
     },
-.object_call = {
-
-NMT_control,
-
-
-
-
-},    
+    
 
 
 };
@@ -98,7 +93,7 @@ void main(void)
             fcode = (msg.frame.id >>7)&0x0f;
             Rele.current_msg = (CanOpen_msg *)&msg;
            
-            Rele.object_call[fcode](0x01,&Rele);
+            
             
             
            
