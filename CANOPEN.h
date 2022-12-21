@@ -875,7 +875,7 @@ if(msg){
 void rw_array_object(CanOpen_msg *msg,void *obj){
      
     if(msg){
-        if(msg->frame_sdo.cmd = READ_REQUEST){ 
+        if(msg->frame_sdo.cmd == READ_REQUEST){ 
             ro_array_object(msg,obj);
         }else if((msg->frame_sdo.cmd&0xE0) == 0x20){wo_array_object(msg,obj);
         }else{ERR_MSG(ERROR_SDO_SERVER);}
@@ -1150,6 +1150,12 @@ uint8_t                mode; /*pre-orintal etc.*/
 
 CanOpen_msg*    current_msg;
 
+void  (*receiving_message)(CanOpen_msg *msg);
+void  (*sending_message)(CanOpen_msg *msg);
+
+
+
+
 struct OD_object *      map;
 
 struct PDO_object*   pdo[8];
@@ -1225,49 +1231,43 @@ void TIME_control(uint8_t code,void* data){
 };
 
 
-/*--------------------- xPDO ------------------------*/
-
-
-
-#define RxPDO1 RPDO1-3
+/*--------------------- RxPDO ------------------------*/
 
 void rxPDO_control(uint8_t code,void* data){
     
     struct xCanOpen *node = (struct xCanOpen *)data;
+    struct PDO_object* pdo = node->pdo[code];
+    
     if(code > 4) return;
-    uint8_t  lock = node->pdo[code]->cob_id&0x80000000?1:0;
-    uint32_t *data32;
-    uint8_t  error = 0;
+    if(node->mode != OPERATIONAL) return;
+    if(pdo->cob_id&0x80000000) return;
     
-    switch(node->mode){
-    
-        case PRE_OPERATIONAL:
-            
-            
-            
-            
-            
-            
-            
-        break;
-            
-        case OPERATIONAL:
-            
-            
-            
-            
-            
-            
-            
-            
-            
-        break;
-        default:
-        break;
-    
-    
-    };
+    copy_rxPDO_message_to_array(node->current_msg,pdo);    
 };
+
+/*-------------------  RxSDO  -----------------------*/
+    
+void rxSDO_control(uint8_t code,void* data){// server <- client
+    
+    void (*object_call)(CanOpen_msg * ,void* );
+    struct xCanOpen*   node = (struct xCanOpen *)data;
+    struct SDO_object* sdo = node->sdo[code];
+    struct OD_object*  tab;
+    
+    if(node->mode != OPERATIONAL || node->mode != PRE_OPERATIONAL) return;
+    if(node->cob_id != sdo->node_id) return;
+    
+    tab =  OD_search_msg_index(node->current_msg,node->map);
+    if(!tab)return;
+    if(!(tab->func_data) || !(tab->data)) return;
+    
+    object_call = tab->func_data;
+    object_call(node->current_msg,tab->data);
+    
+    node->current_msg->frame_sdo.id = sdo->cob_id_server;
+    node->sending_message(node->current_msg); // server -> client
+};    
+   
 
 
 
