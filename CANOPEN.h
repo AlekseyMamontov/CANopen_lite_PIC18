@@ -1142,6 +1142,7 @@ void rw_rpdo_map_object(CanOpen_msg *msg,void *obj){
 /* ------------------ STRUCT CAN NODE ------------------*/
 
 #define n_FUNC_COMMAND 0x0f
+#define MAX_SYNC_OBJECT 8
 
 struct xCanOpen{
 
@@ -1161,7 +1162,7 @@ struct OD_object *      map;
 struct PDO_object*   pdo[8];
 struct SDO_object*   sdo[2];
 
-uint8_t Sync_object [8];
+uint8_t Sync_object [MAX_SYNC_OBJECT];
 
 void  (*func_call[n_FUNC_COMMAND])(uint8_t ,void*);
 
@@ -1219,9 +1220,11 @@ void NMT_control(uint8_t code,void* data){
 };
 /*---------------------- Sync -----------------------*/
 
-void SYNC_control(uint8_t code,void* data){
+void SYNC_control(uint8_t code,void* data){  
     struct xCanOpen *node = (struct xCanOpen *)data;
-
+    for(uint8_t n=0; n<MAX_SYNC_OBJECT; n++){
+      if(node->Sync_object[n]) node->Sync_object[n]--;
+    };
 };
     
 /*--------------------- Time ------------------------*/
