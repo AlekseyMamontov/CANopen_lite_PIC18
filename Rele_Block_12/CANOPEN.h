@@ -21,24 +21,7 @@
 #define  rxPDO3 0x400
 #define  rxPDO4 0x500
 
-// --- function code ------
 
-#define NMT         0b0000
-#define SYNC        0b0001
-#define EMERGENCY   0b0001
-#define TIME_STAMP  0b0010
-
-#define TPDO1       0b0011
-#define RPDO1       0b0100
-#define TPDO2       0b0101
-#define RPDO2       0b0110
-#define TPDO3       0b0111
-#define RPDO3       0b1000
-#define TPDO4       0b1001
-#define RPDO4       0b1010
-#define TxSDO       0b1011
-#define RxSDO       0b1100
-#define NMT_ERROR   0b1110
 
 
 
@@ -1151,16 +1134,13 @@ uint8_t                mode; /*pre-orintal etc.*/
 
 CanOpen_msg*    current_msg;
 
-void  (*receiving_message)(CanOpen_msg *msg);
-void  (*sending_message)(CanOpen_msg *msg);
+uint8_t  (*receiving_message)(CanOpen_msg *msg);
+uint8_t  (*sending_message)(CanOpen_msg *msg);
 
-
-
-
-struct OD_object *      map;
-
-struct PDO_object*   pdo[8];
-struct SDO_object*   sdo[2];
+struct OD_object*   map; 
+struct PDO_object*  rxpdo[4];
+struct PDO_object*  txpdo[4];
+struct SDO_object*  sdo[2];
 
 uint8_t Sync_object [MAX_SYNC_OBJECT];
 
@@ -1195,7 +1175,7 @@ void NOP_call(uint8_t code,void* data){};
 #define  OPERATIONAL        0x05
 #define  PRE_OPERATIONAL	0x7F
 
-void NMT_control(uint8_t code,void* data){
+void NMT_message_processing(uint8_t code,void* data){
     
    
     struct xCanOpen *node = (struct xCanOpen *)data;
@@ -1212,7 +1192,6 @@ void NMT_control(uint8_t code,void* data){
                     case ENTER_PRE_OPERATIONAL: node->mode = PRE_OPERATIONAL;break;
                     case RESET_APPLICATION:     node->mode = BOOT; break;
                     case RESET_COMMUNICATION:   node->mode = BOOT; break;
-                    
                     default:break;                               
                 };
             };                    
@@ -1220,7 +1199,7 @@ void NMT_control(uint8_t code,void* data){
 };
 /*---------------------- Sync -----------------------*/
 
-void SYNC_control(uint8_t code,void* data){  
+void SYNC_message_processing(uint8_t code,void* data){  
     struct xCanOpen *node = (struct xCanOpen *)data;
     for(uint8_t n=0; n<MAX_SYNC_OBJECT; n++){
       if(node->Sync_object[n]) node->Sync_object[n]--;
@@ -1229,28 +1208,29 @@ void SYNC_control(uint8_t code,void* data){
     
 /*--------------------- Time ------------------------*/
 
-void TIME_control(uint8_t code,void* data){
+void TIME_message_processing(uint8_t code,void* data){
     struct xCanOpen *node = (struct xCanOpen *)data;
 };
 
 
 /*--------------------- RxPDO ------------------------*/
 
-void rxPDO_control(uint8_t code,void* data){
+void rxPDO_message_processing(uint8_t code,void* data){
     
     struct xCanOpen *node = (struct xCanOpen *)data;
-    struct PDO_object* pdo = node->pdo[code];
+    struct PDO_object* pdo = node->rxpdo[code];
     
     if(code > 4) return;
     if(node->mode != OPERATIONAL) return;
     if(pdo->cob_id&0x80000000) return;
     
-    copy_rxPDO_message_to_array(node->current_msg,pdo);    
+    copy_rxPDO_message_to_array(node->current_msg,pdo);
+    pdo->status |= NEW_MSG_PDO;
 };
 
 /*-------------------  RxSDO  -----------------------*/
     
-void rxSDO_control(uint8_t code,void* data){// server <- client
+void rxSDO_message_processing(uint8_t code,void* data){// client -> server 
     
     void (*object_call)(CanOpen_msg * ,void* );
     struct xCanOpen*   node = (struct xCanOpen *)data;
@@ -1258,7 +1238,8 @@ void rxSDO_control(uint8_t code,void* data){// server <- client
     struct OD_object*  tab;
     
     if(node->mode != OPERATIONAL || node->mode != PRE_OPERATIONAL) return;
-    if(node->cob_id != sdo->node_id) return;
+    if(sdo->cob_id_server&0x80000000) return;
+    if(node->current_msg->frame_sdo.id != sdo->cob_id_server) return;
     
     tab =  OD_search_msg_index(node->current_msg,node->map);
     if(!tab)return;
@@ -1271,24 +1252,52 @@ void rxSDO_control(uint8_t code,void* data){// server <- client
     node->sending_message(node->current_msg); // server -> client
 };    
    
+/*---------------------- message_processing Node ----------------------*/
+
+// --- function code ------
+
+#define NMT         0b0000
+#define SYNC        0b0001
+#define EMERGENCY   0b0001
+#define TIME_STAMP  0b0010
+
+#define TPDO1       0b0011
+#define RPDO1       0b0100
+#define TPDO2       0b0101
+#define RPDO2       0b0110
+#define TPDO3       0b0111
+#define RPDO3       0b1000
+#define TPDO4       0b1001
+#define RPDO4       0b1010
+#define TxSDO       0b1011
+#define RxSDO       0b1100
+#define NMT_ERROR   0b1110
+
+#define COB_ID      array[1]&0x7f
 
 
 
+void NODE_message_processing(uint8_t code,void* data){
 
-void RPDO2_call(uint8_t code,void* data){};
-void RPDO3_call(uint8_t code,void* data){};
-void RPDO4_call(uint8_t code,void* data){};
+    struct xCanOpen* node = (struct xCanOpen *)data;
+    if(node->receiving_message(node->current_msg) == 0) return;
+    uint8_t fun_code = ((node->current_msg->can_frame.id)&0x780) >> 7;
+    
+    switch(fun_code){
+    
+        case NMT: NMT_message_processing(0,node); break;
+        case SYNC: SYNC_message_processing(0,node); break;
+        case TIME_STAMP:break;
+        
+        case RPDO1:rxPDO_message_processing(0,node);break;
+        case RPDO2:rxPDO_message_processing(1,node);break;
+        case RPDO3:rxPDO_message_processing(2,node);break;
+        case RPDO4:rxPDO_message_processing(3,node);break;
+         
+        case RxSDO:rxSDO_message_processing(0,node);break;
+    };
+};
 
-//Tx
-void TPDO1_call(uint8_t code,void* data){};
-void TPDO2_call(uint8_t code,void* data){};
-void TPDO3_call(uint8_t code,void* data){};
-void TPDO4_call(uint8_t code,void* data){};
-
-//Rx
-void RxSDO1_call(uint8_t code,void* data){};
-//Tx
-void TxSDO2_call(uint8_t code,void* data){};
 
 
 
