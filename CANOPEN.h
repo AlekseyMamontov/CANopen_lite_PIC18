@@ -450,6 +450,8 @@ uint8_t		node_id;
 #define READ_REQUEST  0x40
 #define WRITE_REQUEST 0x20
 
+#define SUB_INDEX_FF  0x0FF 
+
 #define SDO_ANSWER_1b   msg->frame_sdo.cmd = RESPONSE_1b;\
                         msg->frame_sdo.dlc = 5;\
 
@@ -471,9 +473,11 @@ uint8_t		node_id;
  * function skeleton
  * void name ((CanOpen_msg *msg,void *obj){
  * 
- * f(msg != NULL){
+ * f(msg){
  * 
  * .....answer code...
+ * 
+ * if (msg->frame_sdo.sub) 
  * 
  * }else{
  * 
@@ -491,6 +495,13 @@ uint8_t		node_id;
  * };
  * 
  * 
+ * 
+ * 
+ + the task
+ + add support for sub_index 0xFF ,
+ + response e.g. u32 deftype.. type
+ * 
+ * 
  * -----------------------  1 byte  ------------------------*/
 
 void ro_object_1b(CanOpen_msg *msg,void *obj){
@@ -500,9 +511,15 @@ void ro_object_1b(CanOpen_msg *msg,void *obj){
        if((msg->frame_sdo.cmd&0xE0) == 0x20) error = ERROR_NO_SAVE; 
        if(msg->frame_sdo.cmd == READ_REQUEST) error = 0;
        if(!obj) error = ERROR_SYSTEM;
-       if(error){ERR_MSG(error);return;}
-       msg->frame_sdo.data.data8 = *((uint8_t *)obj);
-       SDO_ANSWER_1b    
+       if(!error){
+           switch(msg->frame_sdo.subindex){
+               case 0: msg->frame_sdo.data.data8 = *((uint8_t *)obj);
+                       SDO_ANSWER_1b ; break;
+               case SUB_INDEX_FF: msg->frame_sdo.data.data32 = 
+                       (OD_VAR >>8)|UINT8;SDO_ANSWER_4b;break;
+               default:error = ERROR_SUB_INDEX;break;}
+       }          
+       if(error) ERR_MSG(error);       
     }else{  
         if(obj){ 
             struct obj_info *info = (struct obj_info*)obj;
@@ -1293,10 +1310,12 @@ void NODE_message_processing(uint8_t code,void* data){
         case RPDO2:rxPDO_message_processing(1,node);break;
         case RPDO3:rxPDO_message_processing(2,node);break;
         case RPDO4:rxPDO_message_processing(3,node);break;
-         
         case RxSDO:rxSDO_message_processing(0,node);break;
+        
+        
     };
 };
+
 
 
 
