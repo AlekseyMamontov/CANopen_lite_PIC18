@@ -106,13 +106,6 @@ struct map_info{
 #define PDO_mask_addr	0x7FF // 0b0111 1111 1111
 
 
-#define FUNC_MSG        0x01
-#define FUNC_SDO_READ   0x02
-#define FUNC_SDO_SAVE   0x03
-#define FUNC_SYSTEM     0x04
-
-
-
 //////////////////// ERROR ////////////////
 
 #define OK_SAVE         0x60
@@ -423,10 +416,6 @@ void copy_rxPDO_message_to_array(CanOpen_msg* msg,struct PDO_object* pdo){
 };
 
 
-
-
-
-
 /* ---------------------- SDO COMMUNICATION -----------------*/
 
 struct SDO_object{
@@ -499,7 +488,7 @@ uint8_t		node_id;
  * 
  + the task
  + add support for sub_index 0xFF ,
- + response e.g. u32 deftype.. type
+ + response e.g. u32 Object code (23..8 bit) Data type..(7..0 bit)
  * 
  * 
  * -----------------------  1 byte  ------------------------*/
@@ -516,7 +505,7 @@ void ro_object_1b(CanOpen_msg *msg,void *obj){
                case 0: msg->frame_sdo.data.data8 = *((uint8_t *)obj);
                        SDO_ANSWER_1b ; break;
                case SUB_INDEX_FF: msg->frame_sdo.data.data32 = 
-                       (OD_VAR >>8)|UINT8;SDO_ANSWER_4b;break;
+                       (UINT8 >>8)| OD_VAR ;SDO_ANSWER_4b;break;
                default:error = ERROR_SUB_INDEX;break;}
        }          
        if(error) ERR_MSG(error);       
@@ -907,7 +896,9 @@ void ro_pdo_object(CanOpen_msg *msg,void *obj){
                 case 1:msg->frame_sdo.data.data32 = pdo->cob_id;SDO_ANSWER_4b break;
                 case 2:msg->frame_sdo.data.data8  = pdo->Transmission_type;SDO_ANSWER_1b break;
                 case 3:msg->frame_sdo.data.data16 = pdo->Inhibit_time;SDO_ANSWER_2b break;                    
-                case 5:msg->frame_sdo.data.data16 = pdo->event_timer;SDO_ANSWER_2b break;    
+                case 5:msg->frame_sdo.data.data16 = pdo->event_timer;SDO_ANSWER_2b break;
+                case SUB_INDEX_FF:msg->frame_sdo.data.data32 =
+                                  (PDO_COMM >>8)|OD_DEFSTRUCT ;SDO_ANSWER_4b break;
             default: error = ERROR_SUB_INDEX;break;}}
        if(error)ERR_MSG(error);
     }else{  
@@ -1034,6 +1025,8 @@ void ro_map_object(CanOpen_msg *msg,void *obj){
        if(!error){ switch(msg->frame_sdo.subindex){
                    case 0:msg->frame_sdo.data.data8  = pdo->pdo_map->sub_index;
                           SDO_ANSWER_1b;break;
+                   case SUB_INDEX_FF:msg->frame_sdo.data.data32 =
+                          (PDO_MAPPING >>8)| OD_DEFSTRUCT;SDO_ANSWER_4b break;       
                    default:  msg->frame_sdo.data.data32 = 
                         pdo->pdo_map->map[(msg->frame_sdo.subindex)-1].data32;
                         SDO_ANSWER_4b ; break;
@@ -1155,8 +1148,7 @@ uint8_t  (*receiving_message)(CanOpen_msg *msg);
 uint8_t  (*sending_message)(CanOpen_msg *msg);
 
 struct OD_object*   map; 
-struct PDO_object*  rxpdo[4];
-struct PDO_object*  txpdo[4];
+struct PDO_object*  pdo[8];
 struct SDO_object*  sdo[2];
 
 uint8_t Sync_object [MAX_SYNC_OBJECT];
@@ -1192,10 +1184,7 @@ void NOP_call(uint8_t code,void* data){};
 #define  OPERATIONAL        0x05
 #define  PRE_OPERATIONAL	0x7F
 
-void NMT_message_processing(uint8_t code,void* data){
-    
-   
-    struct xCanOpen *node = (struct xCanOpen *)data;
+void NMT_message_processing(struct xCanOpen *node){
     
         if ((0x7F & node->current_msg->can_frame.id) == 0){
              
@@ -1216,8 +1205,7 @@ void NMT_message_processing(uint8_t code,void* data){
 };
 /*---------------------- Sync -----------------------*/
 
-void SYNC_message_processing(uint8_t code,void* data){  
-    struct xCanOpen *node = (struct xCanOpen *)data;
+void SYNC_message_processing(struct xCanOpen *node){  
     for(uint8_t n=0; n<MAX_SYNC_OBJECT; n++){
       if(node->Sync_object[n]) node->Sync_object[n]--;
     };
@@ -1232,12 +1220,11 @@ void TIME_message_processing(uint8_t code,void* data){
 
 /*--------------------- RxPDO ------------------------*/
 
-void rxPDO_message_processing(uint8_t code,void* data){
+void rxPDO_message_processing(uint8_t code,struct xCanOpen *node){
     
-    struct xCanOpen *node = (struct xCanOpen *)data;
-    struct PDO_object* pdo = node->rxpdo[code];
+    struct PDO_object* pdo = node->pdo[code];
     
-    if(code > 4) return;
+    if(code > 7) return;
     if(node->mode != OPERATIONAL) return;
     if(pdo->cob_id&0x80000000) return;
     
@@ -1247,10 +1234,9 @@ void rxPDO_message_processing(uint8_t code,void* data){
 
 /*-------------------  RxSDO  -----------------------*/
     
-void rxSDO_message_processing(uint8_t code,void* data){// client -> server 
+void rxSDO_message_processing(uint8_t code,struct xCanOpen* node){// client -> server 
     
     void (*object_call)(CanOpen_msg * ,void* );
-    struct xCanOpen*   node = (struct xCanOpen *)data;
     struct SDO_object* sdo = node->sdo[code];
     struct OD_object*  tab;
     
@@ -1294,27 +1280,32 @@ void rxSDO_message_processing(uint8_t code,void* data){// client -> server
 
 
 
-void NODE_message_processing(uint8_t code,void* data){
+void NODE_message_processing(struct xCanOpen* node){
 
-    struct xCanOpen* node = (struct xCanOpen *)data;
     if(node->receiving_message(node->current_msg) == 0) return;
     uint8_t fun_code = ((node->current_msg->can_frame.id)&0x780) >> 7;
     
     switch(fun_code){
     
-        case NMT: NMT_message_processing(0,node); break;
-        case SYNC: SYNC_message_processing(0,node); break;
+        case NMT: NMT_message_processing(node);break;
+        case SYNC:SYNC_message_processing(0,node);break;
         case TIME_STAMP:break;
         
-        case RPDO1:rxPDO_message_processing(0,node);break;
-        case RPDO2:rxPDO_message_processing(1,node);break;
-        case RPDO3:rxPDO_message_processing(2,node);break;
-        case RPDO4:rxPDO_message_processing(3,node);break;
+        case RPDO1:rxPDO_message_processing(1,node);break;
+        case RPDO2:rxPDO_message_processing(3,node);break;
+        case RPDO3:rxPDO_message_processing(5,node);break;
+        case RPDO4:rxPDO_message_processing(7,node);break;
         case RxSDO:rxSDO_message_processing(0,node);break;
-        
-        
+        default:break;   
     };
 };
+
+
+
+/*----------- ?????????? */
+
+
+
 
 
 
