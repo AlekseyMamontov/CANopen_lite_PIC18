@@ -99,66 +99,6 @@ struct map_info{
 	uint16_t index;
 	};	
 
-	
-#define PDO_DISABLED	0x80000000 // 0b1000 0000 0000 0000
-#define PDO_is_transmit	0x80 	   //0b1000 0000
-#define PDO_calculate_n	0x700 // 0b111 0000 0000
-#define PDO_mask_addr	0x7FF // 0b0111 1111 1111
-
-
-//////////////////// ERROR ////////////////
-
-#define OK_SAVE         0x60
-#define RESPONSE_ERROR  0x80		
-
-uint32_t error_msg[]={
-
-#define NO_ERROR         0
-0x00000000,
-#define ERROR_NO_ACCESS  1
-0x06010000,
-#define ERROR_NO_READ    2
-0x06010001,
-#define ERROR_NO_SAVE    3
-0x06010002, 
-#define ERROR_NO_OBJECT  4     
-0x06020000,
-#define ERROR_OBJECT_PDO 5    
-0x06040041,
-#define ERROR_SIZE_PDO   6   
-0x06040042,
-#define ERROR_LEN_OBJECT 7
-0x06070010,
-#define ERROR_bLEN_OBJECT 8   
-0x06070012,
-#define ERROR_sLEN_OBJECT 9  
-0x06070013,
-#define ERROR_SUB_INDEX	  10	
-0x06090011,
-#define ERROR_SYSTEM      11
-0x06040047,
-#define ERROR_EQUIPMENT   12
-0x06060000,
-#define ERROR_TOGGLE_BIT  13
-0x05030000,
-#define ERROR_SDO_SERVER  14
-0x05040001,
-#define ERROR_DATA        15
-0x06090030,
-#define ERROR_BIG_DATA_OBJ 16
-0x06090031,
-#define ERROR_SMALL_DATA_OBJ  17
-0x06090032,
-#define ERROR_ALL_OD_TABLE 18
-0x08000000,
-#define ERROR_OBJ_DICT    19
-0x80000023,
-};
-
-#define ERR_MSG(err) msg->frame_sdo.data.data32 = error_msg[err];\
-                     msg->frame_sdo.cmd = RESPONSE_ERROR;\
-                     msg->frame_sdo.dlc = 8;\
-                     
 
 // ---------------- struct msg --------------------	
 
@@ -251,6 +191,65 @@ typedef union {
 //  #pragma pack(pop) 
 
 #define COB_ID      array[1]&0x7f
+
+
+//////////////////// ERROR ////////////////
+
+#define OK_SAVE         0x60
+#define RESPONSE_ERROR  0x80		
+
+uint32_t error_msg[]={
+
+#define NO_ERROR         0
+0x00000000,
+#define ERROR_NO_ACCESS  1
+0x06010000,
+#define ERROR_NO_READ    2
+0x06010001,
+#define ERROR_NO_SAVE    3
+0x06010002, 
+#define ERROR_NO_OBJECT  4     
+0x06020000,
+#define ERROR_OBJECT_PDO 5    
+0x06040041,
+#define ERROR_SIZE_PDO   6   
+0x06040042,
+#define ERROR_LEN_OBJECT 7
+0x06070010,
+#define ERROR_bLEN_OBJECT 8   
+0x06070012,
+#define ERROR_sLEN_OBJECT 9  
+0x06070013,
+#define ERROR_SUB_INDEX	  10	
+0x06090011,
+#define ERROR_SYSTEM      11
+0x06040047,
+#define ERROR_EQUIPMENT   12
+0x06060000,
+#define ERROR_TOGGLE_BIT  13
+0x05030000,
+#define ERROR_SDO_SERVER  14
+0x05040001,
+#define ERROR_DATA        15
+0x06090030,
+#define ERROR_BIG_DATA_OBJ 16
+0x06090031,
+#define ERROR_SMALL_DATA_OBJ  17
+0x06090032,
+#define ERROR_ALL_OD_TABLE 18
+0x08000000,
+#define ERROR_OBJ_DICT    19
+0x80000023,
+};
+
+#define ERR_MSG(err) msg->frame_sdo.data.data32 = error_msg[err];\
+                     msg->frame_sdo.cmd = RESPONSE_ERROR;\
+                     msg->frame_sdo.dlc = 8;\
+                     
+
+
+
+
 
 
 /*----------------  OD_TABLE  --------------------*/
@@ -456,7 +455,15 @@ uint8_t		node_id;
 #define SDO_SAVE_OK     msg->frame_sdo.cmd = OK_SAVE;\
                         msg->frame_sdo.dlc = 4;\
 
-
+uint8_t check_sdo_command_for_writing(CanOpen_msg *msg,uint8_t nbit){
+    
+    if(msg->frame_sdo.cmd == READ_REQUEST) return ERROR_NO_READ;
+    uint8_t dlc = 4+(nbit >> 3);
+    uint8_t cmd = ((8-dlc)<<2)|0x23;
+    if(msg->frame_sdo.cmd != cmd) return ERROR_SDO_SERVER;
+    if(msg->frame_sdo.dlc < dlc) return ERROR_SMALL_DATA_OBJ;
+    return 0;
+} 
 /* -------------------  SDO_OBJECT -------------------*/
 /*
  * function skeleton
@@ -522,14 +529,13 @@ void ro_object_1b(CanOpen_msg *msg,void *obj){
 void wo_object_1b(CanOpen_msg *msg,void *obj){
 
     if(msg){
-        uint8_t error = ERROR_SDO_SERVER;
-        if(msg->frame_sdo.cmd == READ_REQUEST) error = ERROR_NO_READ;
-        if(msg->frame_sdo.cmd == GET_1b) error = 0;
-        if(msg->frame_sdo.dlc < 5) error = ERROR_SMALL_DATA_OBJ;
-        if(!obj) error = ERROR_SYSTEM;
-        if(error){ERR_MSG(error);return;};
-        *((uint8_t *)obj) = msg->frame_sdo.data.data8;  
-        SDO_SAVE_OK   
+        uint8_t error = ERROR_SYSTEM;
+        if(obj) error = check_sdo_command_for_writing(msg,0x08);
+        if(!error && !(msg->frame_sdo.subindex)){
+            *((uint8_t *)obj) = msg->frame_sdo.data.data8;  
+            SDO_SAVE_OK;return;
+        }else error = ERROR_SUB_INDEX;
+        ERR_MSG(error);            
     }else{
         if(obj){  
             struct obj_info *info = (struct obj_info*)obj;
@@ -1144,19 +1150,17 @@ uint8_t                mode; /*pre-orintal etc.*/
 
 CanOpen_msg*    current_msg;
 
+uint8_t  (*init)(uint8_t id);
 uint8_t  (*receiving_message)(CanOpen_msg *msg);
 uint8_t  (*sending_message)(CanOpen_msg *msg);
 
 struct OD_object*   map; 
 struct PDO_object*  pdo[8];
-struct SDO_object*  sdo[2];
+struct SDO_object*  sdo[1];
 
 uint8_t Sync_object [MAX_SYNC_OBJECT];
 
 void  (*func_call[n_FUNC_COMMAND])(uint8_t ,void*);
-
-
-
 };
 
 /* ------------ function obiect call -----------*/
@@ -1288,7 +1292,7 @@ void NODE_message_processing(struct xCanOpen* node){
     switch(fun_code){
     
         case NMT: NMT_message_processing(node);break;
-        case SYNC:SYNC_message_processing(0,node);break;
+        case SYNC:SYNC_message_processing(node);break;
         case TIME_STAMP:break;
         
         case RPDO1:rxPDO_message_processing(1,node);break;
@@ -1302,10 +1306,9 @@ void NODE_message_processing(struct xCanOpen* node){
 
 
 
-/*----------- */
+/*-----------    processing PDO objects    ---------- */
 
-
-
+void Processing_pdo_objects(struct xCanOpen* node){};
 
 
 
