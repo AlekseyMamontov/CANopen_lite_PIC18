@@ -1302,7 +1302,7 @@ void NODE_message_processing(struct xCanOpen* node){
 
 
 
-/*----------- ?????????? */
+/*----------- */
 
 
 
