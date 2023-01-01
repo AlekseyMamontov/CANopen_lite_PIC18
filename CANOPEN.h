@@ -198,7 +198,7 @@ typedef union {
 #define OK_SAVE         0x60
 #define RESPONSE_ERROR  0x80		
 
-uint32_t error_msg[]={
+const uint32_t error_msg[]={
 
 #define NO_ERROR         0
 0x00000000,
@@ -246,10 +246,6 @@ uint32_t error_msg[]={
                      msg->frame_sdo.cmd = RESPONSE_ERROR;\
                      msg->frame_sdo.dlc = 8;\
                      
-
-
-
-
 
 
 /*----------------  OD_TABLE  --------------------*/
@@ -462,8 +458,22 @@ uint8_t check_sdo_command_for_writing(CanOpen_msg *msg,uint8_t nbit){
     uint8_t cmd = ((8-dlc)<<2)|0x23;
     if(msg->frame_sdo.cmd != cmd) return ERROR_SDO_SERVER;
     if(msg->frame_sdo.dlc < dlc) return ERROR_SMALL_DATA_OBJ;
+    SDO_SAVE_OK
     return 0;
 } 
+uint8_t check_sdo_command_for_reading(CanOpen_msg *msg,uint8_t nbit){
+    
+    if((msg->frame_sdo.cmd&0xE0) == WRITE_REQUEST) return ERROR_NO_SAVE;
+    if(msg->frame_sdo.cmd != READ_REQUEST) return ERROR_SDO_SERVER;
+    if(msg->frame_sdo.dlc < 4) return ERROR_SMALL_DATA_OBJ;
+    uint8_t dlc = 4+(nbit >> 3);
+    msg->frame_sdo.dlc = dlc;
+    msg->frame_sdo.cmd = ((8-dlc)<<2)|0x43;   
+    return 0;
+}
+
+
+
 /* -------------------  SDO_OBJECT -------------------*/
 /*
  * function skeleton
@@ -503,14 +513,11 @@ uint8_t check_sdo_command_for_writing(CanOpen_msg *msg,uint8_t nbit){
 void ro_object_1b(CanOpen_msg *msg,void *obj){
     
     if(msg){
-       uint8_t error = ERROR_SDO_SERVER;
-       if((msg->frame_sdo.cmd&0xE0) == 0x20) error = ERROR_NO_SAVE; 
-       if(msg->frame_sdo.cmd == READ_REQUEST) error = 0;
-       if(!obj) error = ERROR_SYSTEM;
+       uint8_t error = ERROR_SYSTEM;
+       if(obj) error = check_sdo_command_for_reading(msg,0x08);
        if(!error){
            switch(msg->frame_sdo.subindex){
-               case 0: msg->frame_sdo.data.data8 = *((uint8_t *)obj);
-                       SDO_ANSWER_1b ; break;
+               case 0: msg->frame_sdo.data.data8 = *((uint8_t *)obj); break;
                case SUB_INDEX_FF: msg->frame_sdo.data.data32 = 
                        (UINT8 >>8)| OD_VAR ;SDO_ANSWER_4b;break;
                default:error = ERROR_SUB_INDEX;break;}
@@ -532,8 +539,7 @@ void wo_object_1b(CanOpen_msg *msg,void *obj){
         uint8_t error = ERROR_SYSTEM;
         if(obj) error = check_sdo_command_for_writing(msg,0x08);
         if(!error && !(msg->frame_sdo.subindex)){
-            *((uint8_t *)obj) = msg->frame_sdo.data.data8;  
-            SDO_SAVE_OK;return;
+            *((uint8_t *)obj) = msg->frame_sdo.data.data8;return;
         }else error = ERROR_SUB_INDEX;
         ERR_MSG(error);            
     }else{
