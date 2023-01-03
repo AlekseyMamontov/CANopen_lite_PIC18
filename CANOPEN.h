@@ -317,6 +317,22 @@ void (*process_map)(struct PDO_object*);
 uint8_t     data[8];
 };
 
+struct one_type_array{
+    uint8_t sub_index;
+    void*   array;
+};
+
+struct arr_object{
+    uint8_t sub_index;
+    uint8_t nbit;
+    void*   array;
+};
+
+
+
+
+
+
 
 
 void map_object_processing(struct PDO_object* pdo){
@@ -485,7 +501,29 @@ void single_object_response(struct obj_info *info,uint8_t attr,uint8_t nbit){
     info->object = info->sub_nbit == 0?info->object:NULL;
     info->sub_nbit = info->object != NULL? nbit:0;
     info->access = attr;};
-
+    
+void one_type_array_response(struct obj_info *info,uint8_t attr,uint8_t nbit){ 
+    
+    struct one_type_array *arr = info->object;
+    uint8_t len; 
+    if(!arr) return;
+    if(info->sub_nbit > arr->sub_index){
+       info->object = NULL;info->sub_nbit = 0;return;}
+    
+    switch(arr->sub_index){
+        case 0:info->object = &(arr->sub_index);
+               info->sub_nbit = 0x08;info->access = RO;break;
+        default:
+            len = (info->sub_nbit)-1;
+            switch(nbit){
+             case 0x08:info->object = ((uint8_t *)arr->array)+len;break;   
+             case 0x10:info->object = ((uint16_t *)arr->array)+(len*2);break;
+             case 0x18:info->object = ((uint24_t *)arr->array)+(len*3);break;
+             case 0x20:info->object = ((uint32_t *)arr->array)+(len*4);break;
+             default: info->object = NULL;break;}
+    };    
+    info->access = attr; info->sub_nbit = nbit;
+};
 
 /* -------------------  SDO_OBJECT -------------------*/
 /*
@@ -754,10 +792,6 @@ void rw_object_4b(CanOpen_msg *msg,void *obj){
 
 /* ----------------------- array data ---------------------- */
 
-struct one_type_array{
-    uint8_t sub_index;
-    void*   array;
-};
 
 void ro_object_1b_array(CanOpen_msg *msg,void *obj){
     
@@ -777,14 +811,14 @@ void ro_object_1b_array(CanOpen_msg *msg,void *obj){
                break;}
        }          
        if(error) ERR_MSG(error);   
-    }else if(obj)single_object_response(obj,RO,0x08);   
+    }else if(obj)one_type_array_response(obj,RO,0x08);   
 };
 
-struct arr_object{
-    uint8_t sub_index;
-    uint8_t nbit;
-    void*   array;
-};
+
+// or ?
+
+
+
 
 void ro_array_object(CanOpen_msg *msg,void *obj){
 
@@ -822,7 +856,7 @@ if(msg){
        switch(info->sub_nbit){
           case 0:  info->object = &(arr->sub_index);
                    info->sub_nbit = 0x08;info->access = RO;break;
-          default: if(info->sub_nbit > arr->sub_index){info->object = NULL;}
+          default: if(info->sub_nbit > arr->sub_index){info->object = NULL;break;}
           
              switch(arr->nbit){
                    case 0x08:info->object = b8+((info->sub_nbit)-1);break;   
