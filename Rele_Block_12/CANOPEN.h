@@ -517,9 +517,9 @@ void one_type_array_response(struct obj_info *info,uint8_t attr,uint8_t nbit){
             len = (info->sub_nbit)-1;
             switch(nbit){
              case 0x08:info->object = ((uint8_t *)arr->array)+len;break;   
-             case 0x10:info->object = ((uint16_t *)arr->array)+(len*2);break;
-             case 0x18:info->object = ((uint24_t *)arr->array)+(len*3);break;
-             case 0x20:info->object = ((uint32_t *)arr->array)+(len*4);break;
+             case 0x10:info->object = ((uint16_t *)arr->array)+len;break;
+             case 0x18:info->object = ((uint24_t *)arr->array)+len;break;
+             case 0x20:info->object = ((uint32_t *)arr->array)+len;break;
              default: info->object = NULL;break;}
     };    
     info->access = attr; info->sub_nbit = nbit;
