@@ -586,12 +586,7 @@ void wo_object_1b(CanOpen_msg *msg,void *obj){
             *((uint8_t *)obj) = msg->frame_sdo.data.data8;return;
         }else error = ERROR_SUB_INDEX;
         ERR_MSG(error);            
-    }else if(obj){  
-            struct obj_info *info = (struct obj_info*)obj;
-            info->object = info->sub_nbit == 0?info->object:NULL; 
-            info->sub_nbit = info->object != NULL?0x08:0;
-            info->access = WO;
-        };      
+    }else if(obj) single_object_response(obj,WO,0x08);   
 };
 
 void rw_object_1b(CanOpen_msg *msg,void *obj){
@@ -602,12 +597,7 @@ void rw_object_1b(CanOpen_msg *msg,void *obj){
             case GET_1b:wo_object_1b(msg,obj);break;
             default: ERR_MSG(ERROR_SDO_SERVER);break; 
         };
-    }else if(obj){  
-            struct obj_info *info = (struct obj_info*)obj;
-            info->object = info->sub_nbit == 0?info->object:NULL; 
-            info->sub_nbit = info->object != NULL?0x08:0;
-            info->access = RW;
-        };      
+    }else if(obj)single_object_response(obj,RW,0x08);      
 };
 /*-----------------------  2 byte  ------------------------*/
 
@@ -624,12 +614,7 @@ void ro_object_2b(CanOpen_msg *msg,void *obj){
                default:error = ERROR_SUB_INDEX;break;}
        }          
        if(error) ERR_MSG(error);    
-    }else if(obj){ 
-            struct obj_info *info = (struct obj_info*)obj;
-            info->object = info->sub_nbit == 0?info->object:NULL; 
-            info->sub_nbit = info->object != NULL?0x10:0;
-            info->access = RO;            
-    };   
+    }else if(obj)single_object_response(obj,RO,0x10);   
 };
 
 void wo_object_2b(CanOpen_msg *msg,void *obj){
@@ -641,14 +626,7 @@ void wo_object_2b(CanOpen_msg *msg,void *obj){
             *((uint16_t *)obj) = msg->frame_sdo.data.data16;return;
         }else error = ERROR_SUB_INDEX;
         ERR_MSG(error);  
-    }else{
-        if(obj){  
-            struct obj_info *info = (struct obj_info*)obj;
-            info->object = info->sub_nbit == 0?info->object:NULL; 
-            info->sub_nbit = info->object != NULL?0x10:0;
-            info->access = WO;
-        };   
-    };   
+    }else if(obj)single_object_response(obj,WO,0x10);   
 };
 
 void rw_object_2b(CanOpen_msg *msg,void *obj){
@@ -659,14 +637,7 @@ void rw_object_2b(CanOpen_msg *msg,void *obj){
             case GET_2b:wo_object_2b(msg,obj);break;
             default: ERR_MSG(ERROR_SDO_SERVER);break; 
         };
-    }else{
-        if(obj){  
-            struct obj_info *info = (struct obj_info*)obj;
-            info->object = info->sub_nbit == 0?info->object:NULL; 
-            info->sub_nbit = info->object != NULL?0x10:0;
-            info->access = RW;
-        };   
-    };   
+    }else if(obj)single_object_response(obj,RW,0x10);   
 };
 /*-----------------------  3 byte  ------------------------*/
 
@@ -683,14 +654,7 @@ void ro_object_3b(CanOpen_msg *msg,void *obj){
                default:error = ERROR_SUB_INDEX;break;}
        }          
        if(error) ERR_MSG(error);    
-    }else{  
-        if(obj){ 
-            struct obj_info *info = (struct obj_info*)obj;
-            info->object = info->sub_nbit == 0?info->object:NULL; 
-            info->sub_nbit = info->object != NULL?0x18:0;
-            info->access = RO;          
-       };  
-    };   
+    }else if(obj)single_object_response(obj,RO,0x18);
 };
 
 void wo_object_3b(CanOpen_msg *msg,void *obj){
@@ -702,15 +666,8 @@ void wo_object_3b(CanOpen_msg *msg,void *obj){
             *((uint24_t *)obj) = msg->frame_sdo.data.data24;return;
         }else error = ERROR_SUB_INDEX;
         ERR_MSG(error);    
-    }else{
-        if(obj){  
-            struct obj_info *info = (struct obj_info*)obj;
-            info->object = info->sub_nbit == 0?info->object:NULL; 
-            info->sub_nbit = info->object != NULL?0x18:0;
-            info->access = WO;
-        };   
-    };   
-};
+    }else if(obj)single_object_response(obj,WO,0x18);   
+ };
 
 void rw_object_3b(CanOpen_msg *msg,void *obj){
      
@@ -720,14 +677,7 @@ void rw_object_3b(CanOpen_msg *msg,void *obj){
             case GET_3b:wo_object_3b(msg,obj);break;
             default: ERR_MSG(ERROR_SDO_SERVER);break; 
         };
-    }else{
-        if(obj){  
-            struct obj_info *info = (struct obj_info*)obj;
-            info->object = info->sub_nbit == 0?info->object:NULL; 
-            info->sub_nbit = info->object != NULL?0x18:0;
-            info->access = RW;
-        };   
-    };   
+    }else if(obj)single_object_response(obj,RW,0x18);  
 };
 /*-----------------------  4 byte  ------------------------*/
 
@@ -742,14 +692,7 @@ void ro_object_4b(CanOpen_msg *msg,void *obj){
                case 0xFF: msg->frame_sdo.data.data32 = (UINT32 << 8)| OD_VAR ;break;
                default:error = ERROR_SUB_INDEX;break;}}          
        if(error) ERR_MSG(error);    
-    }else{  
-        if(obj){ 
-            struct obj_info *info = (struct obj_info*)obj;
-            info->object = info->sub_nbit == 0?info->object:NULL; 
-            info->sub_nbit = info->object != NULL?0x20:0;
-            info->access = RO;          
-       };  
-    };   
+    }else if(obj)single_object_response(obj,RO,0x20);   
 };
 
 void wo_object_4b(CanOpen_msg *msg,void *obj){
@@ -761,14 +704,7 @@ void wo_object_4b(CanOpen_msg *msg,void *obj){
             *((uint32_t *)obj) = msg->frame_sdo.data.data32;return;
         }else error = ERROR_SUB_INDEX;
         ERR_MSG(error);     
-    }else{
-        if(obj){  
-            struct obj_info *info = (struct obj_info*)obj;
-            info->object = info->sub_nbit == 0?info->object:NULL; 
-            info->sub_nbit = info->object != NULL?0x20:0;
-            info->access = WO;
-        };   
-    };   
+    }else if(obj)single_object_response(obj,WO,0x20);   
 };
 
 void rw_object_4b(CanOpen_msg *msg,void *obj){
@@ -779,14 +715,7 @@ void rw_object_4b(CanOpen_msg *msg,void *obj){
             case GET_4b:wo_object_4b(msg,obj);break;
             default: ERR_MSG(ERROR_SDO_SERVER);break; 
         };
-    }else{
-        if(obj){  
-            struct obj_info *info = (struct obj_info*)obj;
-            info->object = info->sub_nbit == 0?info->object:NULL; 
-            info->sub_nbit = info->object != NULL?0x20:0;
-            info->access = RW;
-        };   
-    };   
+    }else if(obj)single_object_response(obj,RW,0x20);   
 };
 
 
