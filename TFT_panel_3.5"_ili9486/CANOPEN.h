@@ -317,6 +317,22 @@ void (*process_map)(struct PDO_object*);
 uint8_t     data[8];
 };
 
+struct one_type_array{
+    uint8_t sub_index;
+    void*   array;
+};
+
+struct arr_object{
+    uint8_t sub_index;
+    uint8_t nbit;
+    void*   array;
+};
+
+
+
+
+
+
 
 
 void map_object_processing(struct PDO_object* pdo){
@@ -451,6 +467,35 @@ uint8_t		node_id;
 #define SDO_SAVE_OK     msg->frame_sdo.cmd = OK_SAVE;\
                         msg->frame_sdo.dlc = 4;\
 
+struct rw_object{
+    void* read_data;
+    void* write_data;
+    uint8_t type;
+    uint8_t attribute;
+    uint8_t nbit;
+    uint8_t sub_index;
+};
+void copy_data (uint8_t* wdata, uint8_t* rdata, uint8_t nbit){
+    if(!wdata || !rdata)return;
+    nbit >>=3;
+    while (nbit){
+        *(wdata + nbit) = *(rdata+nbit);
+        nbit --;
+   }
+};
+
+void single_object_processing(struct rw_object *obj){
+
+
+
+};
+
+
+
+
+
+
+
 uint8_t check_sdo_command_for_writing(CanOpen_msg *msg,uint8_t nbit){
     
     if(msg->frame_sdo.cmd == READ_REQUEST) return ERROR_NO_READ;
@@ -472,7 +517,33 @@ uint8_t check_sdo_command_for_reading(CanOpen_msg *msg,uint8_t nbit){
     return 0;
 }
 
-
+void single_object_response(struct obj_info *info,uint8_t attr,uint8_t nbit){ 
+    info->object = info->sub_nbit == 0?info->object:NULL;
+    info->sub_nbit = info->object != NULL? nbit:0;
+    info->access = attr;};
+    
+void one_type_array_response(struct obj_info *info,uint8_t attr,uint8_t nbit){ 
+    
+    struct one_type_array *arr = info->object;
+    uint8_t len; 
+    if(!arr) return;
+    if(info->sub_nbit > arr->sub_index){
+       info->object = NULL;info->sub_nbit = 0;return;}
+    
+    switch(arr->sub_index){
+        case 0:info->object = &(arr->sub_index);
+               info->sub_nbit = 0x08;info->access = RO;break;
+        default:
+            len = (info->sub_nbit)-1;
+            switch(nbit){
+             case 0x08:info->object = ((uint8_t *)arr->array)+len;break;   
+             case 0x10:info->object = ((uint16_t *)arr->array)+len;break;
+             case 0x18:info->object = ((uint24_t *)arr->array)+len;break;
+             case 0x20:info->object = ((uint32_t *)arr->array)+len;break;
+             default: info->object = NULL;break;}
+    };    
+    info->access = attr; info->sub_nbit = nbit;
+};
 
 /* -------------------  SDO_OBJECT -------------------*/
 /*
@@ -510,6 +581,27 @@ uint8_t check_sdo_command_for_reading(CanOpen_msg *msg,uint8_t nbit){
  * 
  * -----------------------  1 byte  ------------------------*/
 
+void ro_object(CanOpen_msg *msg,struct rw_object *obj){
+    
+    if(msg){
+       uint8_t error = ERROR_SYSTEM;
+       if(obj) error = check_sdo_command_for_reading(msg,obj->nbit);
+       if(!error){
+           switch(msg->frame_sdo.subindex){
+               case 0: copy_data(&(msg->frame_sdo.data),obj->read_data,obj->nbit); break;
+               case 0xFF: msg->frame_sdo.data.data32 = (UINT8 << 8)| OD_VAR ; 
+                          SDO_ANSWER_4b; break;
+               default:error = ERROR_SUB_INDEX;break;}
+       }          
+       if(error) ERR_MSG(error);   
+    }else if(obj)copy_data(obj->write_data,obj->read_data,obj->nbit);   
+};
+
+void ro_object_1byte(CanOpen_msg *msg,struct rw_object *obj){
+    obj->nbit = 0x08;ro_object(msg,struct rw_object *obj);};
+
+
+
 void ro_object_1b(CanOpen_msg *msg,void *obj){
     
     if(msg){
@@ -518,19 +610,12 @@ void ro_object_1b(CanOpen_msg *msg,void *obj){
        if(!error){
            switch(msg->frame_sdo.subindex){
                case 0: msg->frame_sdo.data.data8 = *((uint8_t *)obj); break;
-               case SUB_INDEX_FF: msg->frame_sdo.data.data32 = 
-                       (UINT8 >>8)| OD_VAR ;SDO_ANSWER_4b;break;
+               case 0xFF: msg->frame_sdo.data.data32 = (UINT8 << 8)| OD_VAR ; 
+                          SDO_ANSWER_4b; break;
                default:error = ERROR_SUB_INDEX;break;}
        }          
-       if(error) ERR_MSG(error);       
-    }else{  
-        if(obj){ 
-            struct obj_info *info = (struct obj_info*)obj;
-            info->object = info->sub_nbit == 0?info->object:NULL;//sub_index=0?
-            info->sub_nbit = info->object != NULL?0x08:0;
-            info->access = RO;          
-       };  
-    };   
+       if(error) ERR_MSG(error);   
+    }else if(obj)single_object_response(obj,RO,0x08);   
 };
 
 void wo_object_1b(CanOpen_msg *msg,void *obj){
@@ -542,14 +627,7 @@ void wo_object_1b(CanOpen_msg *msg,void *obj){
             *((uint8_t *)obj) = msg->frame_sdo.data.data8;return;
         }else error = ERROR_SUB_INDEX;
         ERR_MSG(error);            
-    }else{
-        if(obj){  
-            struct obj_info *info = (struct obj_info*)obj;
-            info->object = info->sub_nbit == 0?info->object:NULL; 
-            info->sub_nbit = info->object != NULL?0x08:0;
-            info->access = WO;
-        };   
-    };   
+    }else if(obj) single_object_response(obj,WO,0x08);   
 };
 
 void rw_object_1b(CanOpen_msg *msg,void *obj){
@@ -560,56 +638,36 @@ void rw_object_1b(CanOpen_msg *msg,void *obj){
             case GET_1b:wo_object_1b(msg,obj);break;
             default: ERR_MSG(ERROR_SDO_SERVER);break; 
         };
-    }else{
-        if(obj){  
-            struct obj_info *info = (struct obj_info*)obj;
-            info->object = info->sub_nbit == 0?info->object:NULL; 
-            info->sub_nbit = info->object != NULL?0x08:0;
-            info->access = RW;
-        };   
-    };   
+    }else if(obj)single_object_response(obj,RW,0x08);      
 };
 /*-----------------------  2 byte  ------------------------*/
 
 void ro_object_2b(CanOpen_msg *msg,void *obj){
     
     if(msg){
-       uint8_t error = ERROR_SDO_SERVER;
-       if((msg->frame_sdo.cmd&0xE0) == 0x20) error = ERROR_NO_SAVE; 
-       if(msg->frame_sdo.cmd == READ_REQUEST) error = 0;
-       if(!obj) error = ERROR_SYSTEM;
-       if(error){ERR_MSG(error);return;}
-       msg->frame_sdo.data.data16 = *((uint16_t *)obj);
-       SDO_ANSWER_2b    
-    }else{  
-        if(obj){ 
-            struct obj_info *info = (struct obj_info*)obj;
-            info->object = info->sub_nbit == 0?info->object:NULL; 
-            info->sub_nbit = info->object != NULL?0x10:0;
-            info->access = RO;          
-       };  
-    };   
+       uint8_t error = ERROR_SYSTEM;
+       if(obj) error = check_sdo_command_for_reading(msg,0x10);
+       if(!error){
+           switch(msg->frame_sdo.subindex){
+               case 0: msg->frame_sdo.data.data16 = *((uint16_t *)obj); break;
+               case 0xFF: msg->frame_sdo.data.data32 = (UINT16 << 8)| OD_VAR ; 
+                          SDO_ANSWER_4b; break;
+               default:error = ERROR_SUB_INDEX;break;}
+       }          
+       if(error) ERR_MSG(error);    
+    }else if(obj)single_object_response(obj,RO,0x10);   
 };
 
 void wo_object_2b(CanOpen_msg *msg,void *obj){
 
-    if(msg){
-        uint8_t error = ERROR_SDO_SERVER;
-        if(msg->frame_sdo.cmd == READ_REQUEST) error = ERROR_NO_READ;
-        if(msg->frame_sdo.cmd == GET_2b) error = 0;
-        if(msg->frame_sdo.dlc < 6) error = ERROR_SMALL_DATA_OBJ;
-        if(!obj) error = ERROR_SYSTEM;
-        if(error){ERR_MSG(error);return;};
-        *((uint16_t *)obj) = msg->frame_sdo.data.data16;
-        SDO_SAVE_OK  
-    }else{
-        if(obj){  
-            struct obj_info *info = (struct obj_info*)obj;
-            info->object = info->sub_nbit == 0?info->object:NULL; 
-            info->sub_nbit = info->object != NULL?0x10:0;
-            info->access = WO;
-        };   
-    };   
+   if(msg){
+        uint8_t error = ERROR_SYSTEM;
+        if(obj) error = check_sdo_command_for_writing(msg,0x10);
+        if(!error && !(msg->frame_sdo.subindex)){
+            *((uint16_t *)obj) = msg->frame_sdo.data.data16;return;
+        }else error = ERROR_SUB_INDEX;
+        ERR_MSG(error);  
+    }else if(obj)single_object_response(obj,WO,0x10);   
 };
 
 void rw_object_2b(CanOpen_msg *msg,void *obj){
@@ -620,57 +678,37 @@ void rw_object_2b(CanOpen_msg *msg,void *obj){
             case GET_2b:wo_object_2b(msg,obj);break;
             default: ERR_MSG(ERROR_SDO_SERVER);break; 
         };
-    }else{
-        if(obj){  
-            struct obj_info *info = (struct obj_info*)obj;
-            info->object = info->sub_nbit == 0?info->object:NULL; 
-            info->sub_nbit = info->object != NULL?0x10:0;
-            info->access = RW;
-        };   
-    };   
+    }else if(obj)single_object_response(obj,RW,0x10);   
 };
 /*-----------------------  3 byte  ------------------------*/
 
 void ro_object_3b(CanOpen_msg *msg,void *obj){
     
-    if(msg){
-       uint8_t error = ERROR_SDO_SERVER;
-       if((msg->frame_sdo.cmd&0xE0) == 0x20) error = ERROR_NO_SAVE; 
-       if(msg->frame_sdo.cmd == READ_REQUEST) error = 0;
-       if(!obj) error = ERROR_SYSTEM;
-       if(error){ERR_MSG(error);return;}
-       msg->frame_sdo.data.data24 = *((uint24_t *)obj);
-       SDO_ANSWER_3b    
-    }else{  
-        if(obj){ 
-            struct obj_info *info = (struct obj_info*)obj;
-            info->object = info->sub_nbit == 0?info->object:NULL; 
-            info->sub_nbit = info->object != NULL?0x18:0;
-            info->access = RO;          
-       };  
-    };   
+   if(msg){
+       uint8_t error = ERROR_SYSTEM;
+       if(obj) error = check_sdo_command_for_reading(msg,0x18);
+       if(!error){
+           switch(msg->frame_sdo.subindex){
+               case 0: msg->frame_sdo.data.data24 = *((uint24_t *)obj); break;
+               case 0xFF: msg->frame_sdo.data.data32 = (UINT24 << 8)| OD_VAR ; 
+                          SDO_ANSWER_4b; break;
+               default:error = ERROR_SUB_INDEX;break;}
+       }          
+       if(error) ERR_MSG(error);    
+    }else if(obj)single_object_response(obj,RO,0x18);
 };
 
 void wo_object_3b(CanOpen_msg *msg,void *obj){
 
     if(msg){
-        uint8_t error = ERROR_SDO_SERVER;
-        if(msg->frame_sdo.cmd == READ_REQUEST) error = ERROR_NO_READ;
-        if(msg->frame_sdo.cmd == GET_3b) error = 0;
-        if(msg->frame_sdo.dlc < 7) error = ERROR_SMALL_DATA_OBJ;
-        if(!obj) error = ERROR_SYSTEM;
-        if(error){ERR_MSG(error);return;};
-        *((uint24_t *)obj) = msg->frame_sdo.data.data24;
-        SDO_SAVE_OK     
-    }else{
-        if(obj){  
-            struct obj_info *info = (struct obj_info*)obj;
-            info->object = info->sub_nbit == 0?info->object:NULL; 
-            info->sub_nbit = info->object != NULL?0x18:0;
-            info->access = WO;
-        };   
-    };   
-};
+        uint8_t error = ERROR_SYSTEM;
+        if(obj) error = check_sdo_command_for_writing(msg,0x18);
+        if(!error && !(msg->frame_sdo.subindex)){
+            *((uint24_t *)obj) = msg->frame_sdo.data.data24;return;
+        }else error = ERROR_SUB_INDEX;
+        ERR_MSG(error);    
+    }else if(obj)single_object_response(obj,WO,0x18);   
+ };
 
 void rw_object_3b(CanOpen_msg *msg,void *obj){
      
@@ -680,56 +718,34 @@ void rw_object_3b(CanOpen_msg *msg,void *obj){
             case GET_3b:wo_object_3b(msg,obj);break;
             default: ERR_MSG(ERROR_SDO_SERVER);break; 
         };
-    }else{
-        if(obj){  
-            struct obj_info *info = (struct obj_info*)obj;
-            info->object = info->sub_nbit == 0?info->object:NULL; 
-            info->sub_nbit = info->object != NULL?0x18:0;
-            info->access = RW;
-        };   
-    };   
+    }else if(obj)single_object_response(obj,RW,0x18);  
 };
 /*-----------------------  4 byte  ------------------------*/
 
 void ro_object_4b(CanOpen_msg *msg,void *obj){
     
     if(msg){
-       uint8_t error = ERROR_SDO_SERVER;
-       if((msg->frame_sdo.cmd&0xE0) == 0x20) error = ERROR_NO_SAVE; 
-       if(msg->frame_sdo.cmd == READ_REQUEST) error = 0;
-       if(!obj) error = ERROR_SYSTEM;
-       if(error){ERR_MSG(error);return;}
-       msg->frame_sdo.data.data32 = *((uint32_t *)obj);
-       SDO_ANSWER_4b    
-    }else{  
-        if(obj){ 
-            struct obj_info *info = (struct obj_info*)obj;
-            info->object = info->sub_nbit == 0?info->object:NULL; 
-            info->sub_nbit = info->object != NULL?0x20:0;
-            info->access = RO;          
-       };  
-    };   
+       uint8_t error = ERROR_SYSTEM;
+       if(obj) error = check_sdo_command_for_reading(msg,0x20);
+       if(!error){
+           switch(msg->frame_sdo.subindex){
+               case 0: msg->frame_sdo.data.data32 = *((uint32_t *)obj); break;
+               case 0xFF: msg->frame_sdo.data.data32 = (UINT32 << 8)| OD_VAR ;break;
+               default:error = ERROR_SUB_INDEX;break;}}          
+       if(error) ERR_MSG(error);    
+    }else if(obj)single_object_response(obj,RO,0x20);   
 };
 
 void wo_object_4b(CanOpen_msg *msg,void *obj){
 
     if(msg){
-        uint8_t error = ERROR_SDO_SERVER;
-        if(msg->frame_sdo.cmd == READ_REQUEST) error = ERROR_NO_READ;
-        if(msg->frame_sdo.cmd == GET_4b) error = 0;
-        if(msg->frame_sdo.dlc < 8) error = ERROR_SMALL_DATA_OBJ;
-        if(!obj) error = ERROR_SYSTEM;
-        if(error){ERR_MSG(error);return;};
-        *((uint32_t *)obj) = msg->frame_sdo.data.data32;
-        SDO_SAVE_OK     
-    }else{
-        if(obj){  
-            struct obj_info *info = (struct obj_info*)obj;
-            info->object = info->sub_nbit == 0?info->object:NULL; 
-            info->sub_nbit = info->object != NULL?0x20:0;
-            info->access = WO;
-        };   
-    };   
+        uint8_t error = ERROR_SYSTEM;
+        if(obj) error = check_sdo_command_for_writing(msg,0x20);
+        if(!error && !(msg->frame_sdo.subindex)){
+            *((uint32_t *)obj) = msg->frame_sdo.data.data32;return;
+        }else error = ERROR_SUB_INDEX;
+        ERR_MSG(error);     
+    }else if(obj)single_object_response(obj,WO,0x20);   
 };
 
 void rw_object_4b(CanOpen_msg *msg,void *obj){
@@ -740,57 +756,65 @@ void rw_object_4b(CanOpen_msg *msg,void *obj){
             case GET_4b:wo_object_4b(msg,obj);break;
             default: ERR_MSG(ERROR_SDO_SERVER);break; 
         };
-    }else{
-        if(obj){  
-            struct obj_info *info = (struct obj_info*)obj;
-            info->object = info->sub_nbit == 0?info->object:NULL; 
-            info->sub_nbit = info->object != NULL?0x20:0;
-            info->access = RW;
-        };   
-    };   
+    }else if(obj)single_object_response(obj,RW,0x20);   
 };
 
 
 /* ----------------------- array data ---------------------- */
 
-struct arr_object{
-    uint8_t sub_index;
-    uint8_t nbit;
-    void*   array;
+
+void ro_object_1b_array(CanOpen_msg *msg,void *obj){
+    
+    if(msg){
+       struct one_type_array *arr = obj; 
+       uint8_t error = ERROR_SYSTEM;
+       if(obj) error = check_sdo_command_for_reading(msg,0x08);
+       if(!error){
+           switch(msg->frame_sdo.subindex){
+               case 0: msg->frame_sdo.data.data8 = arr->sub_index; break;
+               case 0xFF: msg->frame_sdo.data.data32 = (UINT8 << 8)| OD_ARRAY ; 
+                          SDO_ANSWER_4b; break;
+               default:
+                 if(msg->frame_sdo.subindex > arr->sub_index) error = ERROR_SUB_INDEX;break;
+                 msg->frame_sdo.data.data8=
+                         *(((uint8_t*)arr->array)+((msg->frame_sdo.subindex)-1));
+               break;}
+       }          
+       if(error) ERR_MSG(error);   
+    }else if(obj)one_type_array_response(obj,RO,0x08);   
 };
+
+
+// or ?
+
+
+
 
 void ro_array_object(CanOpen_msg *msg,void *obj){
 
 if(msg){
     struct arr_object *arr = (struct arr_object*)obj;
     
-    uint8_t error = ERROR_SDO_SERVER;
+    uint8_t error = ERROR_SYSTEM;
     uint8_t  *b8=(uint8_t*)arr->array;
     uint16_t *b16=(uint16_t*)arr->array;
     uint24_t *b24=(uint24_t*)arr->array;
     uint32_t *b32=(uint32_t*)arr->array;
     
-    if((msg->frame_sdo.cmd&0xE0) == 0x20) error = ERROR_NO_SAVE;
-    if(msg->frame_sdo.cmd == READ_REQUEST) error = 0;
-    if(msg->frame_sdo.dlc < 4) error = ERROR_SMALL_DATA_OBJ;
-    if(!arr) error = ERROR_SYSTEM;
+    if(arr) error = check_sdo_command_for_reading(msg,arr->nbit);
       if(!error){
         switch(arr->sub_index){
           case 0:msg->frame_sdo.data.data8 = arr->sub_index;SDO_ANSWER_1b break; 
           default:
-               if(msg->frame_sdo.subindex > arr->sub_index)error = ERROR_SUB_INDEX;break;
-                 switch(arr->nbit){
-                   case 0x08:msg->frame_sdo.data.data8=*(b8+((msg->frame_sdo.subindex)-1));
-                             SDO_ANSWER_1b break;   
-                   case 0x10:msg->frame_sdo.data.data16 = *(b16 + ((msg->frame_sdo.subindex)-1));
-                             SDO_ANSWER_2b break;
-                   case 0x18:msg->frame_sdo.data.data24 = *(b24 + ((msg->frame_sdo.subindex)-1));
-                             SDO_ANSWER_3b break;
-                   case 0x20:msg->frame_sdo.data.data32 = *(b32 + ((msg->frame_sdo.subindex)-1));
-                             SDO_ANSWER_4b break;
-                   default: error = ERROR_LEN_OBJECT; break;};
-          break;};   
-      } if(error)ERR_MSG(error);
+            if(msg->frame_sdo.subindex > arr->sub_index)error = ERROR_SUB_INDEX;break;
+            switch(arr->nbit){
+                case 0x08:msg->frame_sdo.data.data8=*(b8+((msg->frame_sdo.subindex)-1));break;    
+                case 0x10:msg->frame_sdo.data.data16 = *(b16 + ((msg->frame_sdo.subindex)-1));break;
+                case 0x18:msg->frame_sdo.data.data24 = *(b24 + ((msg->frame_sdo.subindex)-1));break;
+                case 0x20:msg->frame_sdo.data.data32 = *(b32 + ((msg->frame_sdo.subindex)-1));break;
+                default: error = ERROR_LEN_OBJECT; break;};
+          break;}} 
+    if(error)ERR_MSG(error);
 }else{
       if(obj){  
        struct obj_info *info = (struct obj_info*)obj;
@@ -802,7 +826,7 @@ if(msg){
        switch(info->sub_nbit){
           case 0:  info->object = &(arr->sub_index);
                    info->sub_nbit = 0x08;info->access = RO;break;
-          default: if(info->sub_nbit > arr->sub_index){info->object = NULL;}
+          default: if(info->sub_nbit > arr->sub_index){info->object = NULL;break;}
           
              switch(arr->nbit){
                    case 0x08:info->object = b8+((info->sub_nbit)-1);break;   
