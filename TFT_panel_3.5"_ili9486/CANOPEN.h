@@ -555,17 +555,16 @@ void single_object(struct data_object *obj){
        case SDO_request:
             CanOpen_msg *msg = obj->rw_object;
             uint8_t *wdata,*rdata,nbit,error;
+            wdata = &msg->frame_sdo.data;
             //read
             if(msg->frame_sdo.cmd == READ_REQUEST){	
 				if(obj->attribute&RO){
 				error = check_sdo_command_for_reading(msg,obj->nbit);
 				if(!error){ 
                     switch(msg->frame_sdo.subindex){
-                       case 0:wdata = &msg->frame_sdo.data;
-                              rdata = obj->data_object;
-                              nbit  = obj->nbit;
-                            break;              
-                       case 0xFF:obj->data_object = &(obj->sub_index_ff);
+                       case 0:rdata = obj->data_object;
+                              nbit  = obj->nbit;break;              
+                       case 0xFF:rdata = &(obj->sub_index_ff);
                                  obj->nbit = 0x20; SDO_ANSWER_4b;break;         
                        default:error = ERROR_SUB_INDEX;break;};		
                  }}else error = ERROR_NO_READ;	
@@ -575,15 +574,13 @@ void single_object(struct data_object *obj){
 				error = check_sdo_command_for_writing(msg,obj->nbit);
 				if(!error){ 
                     switch(msg->frame_sdo.subindex){
-                       case 0:wdata = obj->data_object;
-                               rdata = &msg->frame_sdo.data;
-							   nbit  = obj->nbit;break;
-                               
-                        case 0xFF:obj->data_object = &(obj->sub_index_ff);
-                                  obj->nbit = 0x20; SDO_ANSWER_4b;break;         
-                            default:error = ERROR_SUB_INDEX;break;};	
-				      } 
-				}else error = ERROR_NO_SAVE;
+                       case 0:rdata = wdata;
+                              wdata = obj->data_object;
+							  nbit  = obj->nbit;break;       
+                       case 0xFF:rdata = &(obj->sub_index_ff);
+                                 obj->nbit = 0x20; SDO_ANSWER_4b;break;         
+                        default:error = ERROR_SUB_INDEX;break;};	
+				}}else error = ERROR_NO_SAVE;
 		  }else error = ERROR_SDO_SERVER;
                     
           if(error){obj->data_object = (error_msg + error);
