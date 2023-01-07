@@ -468,20 +468,18 @@ uint8_t		node_id;
                         msg->frame_sdo.dlc = 4;\
 
 struct rw_object{
-    void* read_data;
-    void* write_data;
+    void* data_object;
+    void* object2;
     uint8_t type;
     uint8_t attribute;
     uint8_t nbit;
     uint8_t sub_index;
+    uint32_t sub_index_ff;
 };
 void copy_data (uint8_t* wdata, uint8_t* rdata, uint8_t nbit){
     if(!wdata || !rdata)return;
     nbit >>=3;
-    while (nbit){
-        *(wdata + nbit) = *(rdata+nbit);
-        nbit --;
-   }
+    for(uint8_t i=0;i<nbit;i++){*(wdata + i) = *(rdata+i);}
 };
 
 void single_object_processing(struct rw_object *obj){
@@ -588,17 +586,19 @@ void ro_object(CanOpen_msg *msg,struct rw_object *obj){
        if(obj) error = check_sdo_command_for_reading(msg,obj->nbit);
        if(!error){
            switch(msg->frame_sdo.subindex){
-               case 0: copy_data(&(msg->frame_sdo.data),obj->read_data,obj->nbit); break;
-               case 0xFF: msg->frame_sdo.data.data32 = (UINT8 << 8)| OD_VAR ; 
-                          SDO_ANSWER_4b; break;
+               case 0:obj->object2 = &(msg->frame_sdo.data);break;
+               case 0xFF:obj->object2 = &(obj->sub_index_ff);
+                         obj->nbit = 0x20;SDO_ANSWER_4b;break;
                default:error = ERROR_SUB_INDEX;break;}
        }          
        if(error) ERR_MSG(error);   
-    }else if(obj)copy_data(obj->write_data,obj->read_data,obj->nbit);   
+    }else if(!obj) return; 
+    copy_data(obj->object2,obj->data_object,obj->nbit);//write,read,nbit  
 };
 
 void ro_object_1byte(CanOpen_msg *msg,struct rw_object *obj){
-    obj->nbit = 0x08;ro_object(msg,struct rw_object *obj);};
+    obj->nbit = 0x08;obj->sub_index_ff = (UINT8 << 8)| OD_VAR ;
+    ro_object(msg,obj);}
 
 
 
