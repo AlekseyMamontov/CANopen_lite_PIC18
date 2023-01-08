@@ -495,7 +495,7 @@ void single_object_processing(struct rw_object *obj){
 
 
 uint8_t check_sdo_command_for_writing(CanOpen_msg *msg,uint8_t nbit){
-    if(!msg) return ERROR_SYSTEM;
+    
     uint8_t dlc = 4+(nbit >> 3);
     uint8_t cmd = ((8-dlc)<<2)|0x23;
     if(msg->frame_sdo.cmd != cmd) return ERROR_SDO_SERVER;
@@ -504,7 +504,7 @@ uint8_t check_sdo_command_for_writing(CanOpen_msg *msg,uint8_t nbit){
     return 0;
 } 
 uint8_t check_sdo_command_for_reading(CanOpen_msg *msg,uint8_t nbit){
-    if(!msg) return ERROR_SYSTEM;
+    
     if(msg->frame_sdo.cmd != READ_REQUEST) return ERROR_SDO_SERVER;
     if(msg->frame_sdo.dlc < 4) return ERROR_SMALL_DATA_OBJ;
     uint8_t dlc = 4+(nbit >> 3);
@@ -549,23 +549,24 @@ void one_type_array_response(struct obj_info *info,uint8_t attr,uint8_t nbit){
 #define MAP_info 3
 
 void single_object(struct data_object *obj){
-    
+    uint8_t *wdata,*rdata,nbit;
     if(!obj)return;
     switch(obj->request_type){
        case SDO_request:
             CanOpen_msg *msg = obj->rw_object;
-            uint8_t *wdata,*rdata,nbit,error;
+            if(!msg) return;
+            uint8_t error = ERROR_SDO_SERVER;
             wdata = &msg->frame_sdo.data;
             //read
             if(msg->frame_sdo.cmd == READ_REQUEST){	
-				if(obj->attribute&RO){
-				error = check_sdo_command_for_reading(msg,obj->nbit);
-				if(!error){ 
+                if(obj->attribute&RO){
+                error = check_sdo_command_for_reading(msg,obj->nbit);
+                if(!error){ 
                     switch(msg->frame_sdo.subindex){
-                       case 0:rdata = obj->data_object;
-                              nbit  = obj->nbit;break;              
-                       case 0xFF:rdata = &(obj->sub_index_ff);
-                                 obj->nbit = 0x20; SDO_ANSWER_4b;break;         
+                        case 0:rdata = obj->data_object;
+                               nbit  = obj->nbit;break;              
+                        case 0xFF:rdata = &(obj->sub_index_ff);
+                                  nbit = 0x20; SDO_ANSWER_4b;break;         
                        default:error = ERROR_SUB_INDEX;break;};		
                  }}else error = ERROR_NO_READ;	
             //write    
@@ -578,28 +579,147 @@ void single_object(struct data_object *obj){
                               wdata = obj->data_object;
 							  nbit  = obj->nbit;break;       
                        case 0xFF:rdata = &(obj->sub_index_ff);
-                                 obj->nbit = 0x20; SDO_ANSWER_4b;break;         
+                                 nbit = 0x20; SDO_ANSWER_4b;break;         
                         default:error = ERROR_SUB_INDEX;break;};	
 				}}else error = ERROR_NO_SAVE;
-		  }else error = ERROR_SDO_SERVER;
-                    
-          if(error){obj->data_object = (error_msg + error);
-                      obj->nbit = 0x20;
+		  }          
+          if(error){rdata = (error_msg + error);
+                      nbit = 0x20;
                       msg->frame_sdo.cmd = RESPONSE_ERROR;
                       msg->frame_sdo.dlc = 0x08;}
-                      
-          copy_data(wdata,rdata,nbit);break;         
+          copy_data(wdata,rdata,nbit);  
+          break;         
           
-        case MAP_read_request:
+        case MAP_read_request: //txPDO
             if(!(obj->attribute & RO)) break;
+            if(!(obj->sub_index)) break;
             copy_data(obj->rw_object,obj->data_object,obj->nbit);break;
-        case MAP_write_request:
+        case MAP_write_request: //rxPDO
             if(!(obj->attribute & WO)) break;
+            if(!(obj->sub_index)) break;
             copy_data(obj->data_object,obj->rw_object,obj->nbit);break;
         case MAP_info:
-            obj->rw_object = obj->sub_index?NULL: obj->data_object;
+            obj->rw_object = obj->sub_index?NULL: obj->data_object;break;
+        default:break;
+     }
+ 
+};
+
+void array_object(struct data_object *obj){
+	
+    uint8_t *wdata,*rdata,nbit;
+    if(!obj)return;
+    struct arr_object* array = obj->data_object;
+    if(!array) return;
+    
+    switch(obj->request_type){
+		
+       case SDO_request:
+            CanOpen_msg *msg = obj->rw_object;
+            if(!msg)return;
+            uint8_t error = ERROR_SDO_SERVER;
+            wdata = &msg->frame_sdo.data;
+            //read
+            if(msg->frame_sdo.cmd == READ_REQUEST){	
+                if(obj->attribute&RO){
+                error = check_sdo_command_for_reading(msg,obj->nbit);
+                if(!error){ 
+                    switch(msg->frame_sdo.subindex){
+                        case 0:rdata = &array->sub_index;;
+                               nbit  = 0x08;break;              
+                        case 0xFF:rdata = &(obj->sub_index_ff);
+                                  nbit = 0x20; SDO_ANSWER_4b;break;         
+                        default:if(array->sub_index < (msg->frame_sdo.subindex))
+														error = ERROR_SUB_INDEX;break;
+								nbit = obj->nbit;
+								rdata = array->array;
+								rdata = rdata + ((nbit>>3)*((msg->frame_sdo.subindex)-1));
+                        break;}		
+                 }
+             }else error = ERROR_NO_READ;	
+            //write    
+            }else if((msg->frame_sdo.cmd&0xE0) == WRITE_REQUEST){
+				if(obj->attribute&WO){
+				error = check_sdo_command_for_writing(msg,obj->nbit);
+				if(!error){ 
+                    switch(msg->frame_sdo.subindex){
+                       case 0:error = ERROR_NO_SAVE;break;       
+                       case 0xFF:rdata = &(obj->sub_index_ff);
+                                 nbit = 0x20; SDO_ANSWER_4b;break;         
+                       default:if(array->sub_index < (msg->frame_sdo.subindex))
+												error = ERROR_SUB_INDEX;break;
+								rdata = wdata;
+								wdata = array->array;
+								wdata = wdata + ((nbit>>3)*((msg->frame_sdo.subindex)-1));		
+						;}      	
+				}
+			 }else error = ERROR_NO_SAVE;
+		  }          
+          if(error){rdata = (error_msg + error);
+                      nbit = 0x20;
+                      msg->frame_sdo.cmd = RESPONSE_ERROR;
+                      msg->frame_sdo.dlc = 0x08;}
+          copy_data(wdata,rdata,nbit);            
+          break;         
+          
+        case MAP_read_request:// txPDO
+        
+            if(!(obj->attribute & RO))break;
+            nbit = obj->nbit;
+            rdata = array->array;
+            if(!rdata) break;
+            rdata = !(obj->sub_index)?&array->sub_index : 
+					rdata + ((nbit>>3)*((obj->sub_index)-1));
+			copy_data(obj->rw_object,rdata,nbit);		
+            break;
+            
+        case MAP_write_request: //rxPDO
+        
+            if(!(obj->attribute & WO)) return;
+            nbit = obj->nbit;
+            wdata = array->array;
+            if(!wdata) break;
+            wdata = (!(obj->sub_index)|| obj->sub_index 0xFF)? NULL : 
+					wdata + ((nbit>>3)*((obj->sub_index)-1));
+			copy_data(wdata,obj->rw_object,nbit);		
+            break;
+  
+         /*response data_object | answer rw_data  *addr_objecta,nbit,attr;NULL - no object.
+          * for fast processing mapping*/   
+        case MAP_info:
+        
+			if(!obj->data_object){obj->rw_object= NULL;return;} 
+			switch(obj->sub_index){
+				 case 0: rdata = &array->sub_index;nbit = 0x08;obj->attribute = RO;break;
+				 case 0xFF : rdata = &(obj->sub_index_ff); nbit = 0x20;obj->attribute = RO;break;
+				 default: if(obj->sub_index > array->sub_index) rdata=NULL;nbit=0;break;
+						  rdata = array->array;
+						  nbit = obj->nbit;
+						  rdata = rdata?rdata + ((nbit>>3)*((obj->sub_index)-1)):NULL;
+			};
+			obj->rw_object = rdata;obj->nbit = nbit;return;
+            break;         
+      default:break;
      }
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 void ro_object_1byte(struct data_object *obj){
      obj->nbit = 0x08;obj->sub_index_ff = (UINT8 << 8)| OD_VAR ;
