@@ -571,13 +571,13 @@ void single_object(struct data_object *obj){
                  }}else error = ERROR_NO_READ;	
             //write    
             }else if((msg->frame_sdo.cmd&0xE0) == WRITE_REQUEST){
-				if(obj->attribute&WO){
-				error = check_sdo_command_for_writing(msg,obj->nbit);
-				if(!error){ 
+		if(obj->attribute&WO){
+		error = check_sdo_command_for_writing(msg,obj->nbit);
+	if(!error){ 
                     switch(msg->frame_sdo.subindex){
                        case 0:rdata = wdata;
                               wdata = obj->data_object;
-							  nbit  = obj->nbit;break;       
+			      nbit  = obj->nbit;break;       
                        case 0xFF:rdata = &(obj->sub_index_ff);
                                  nbit = 0x20; SDO_ANSWER_4b;break;         
                         default:error = ERROR_SUB_INDEX;break;};	
@@ -630,10 +630,10 @@ void array_object(struct data_object *obj){
                         case 0xFF:rdata = &(obj->sub_index_ff);
                                   nbit = 0x20; SDO_ANSWER_4b;break;         
                         default:if(array->sub_index < (msg->frame_sdo.subindex))
-														error = ERROR_SUB_INDEX;break;
-								nbit = obj->nbit;
-								rdata = array->array;
-								rdata = rdata + ((nbit>>3)*((msg->frame_sdo.subindex)-1));
+						error = ERROR_SUB_INDEX;break;
+			nbit = obj->nbit;
+			rdata = array->array;
+			rdata = rdata + ((nbit>>3)*((msg->frame_sdo.subindex)-1));
                         break;}		
                  }
              }else error = ERROR_NO_READ;	
