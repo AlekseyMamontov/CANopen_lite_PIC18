@@ -549,9 +549,12 @@ void one_type_array_response(struct obj_info *info,uint8_t attr,uint8_t nbit){
 #define MAP_info 3
 
 void single_object(struct data_object *obj){
+    
     uint8_t *wdata,*rdata,nbit;
     if(!obj)return;
+    
     switch(obj->request_type){
+        
        case SDO_request:
             CanOpen_msg *msg = obj->rw_object;
             if(!msg) return;
@@ -571,13 +574,13 @@ void single_object(struct data_object *obj){
                  }}else error = ERROR_NO_READ;	
             //write    
             }else if((msg->frame_sdo.cmd&0xE0) == WRITE_REQUEST){
-		if(obj->attribute&WO){
-		error = check_sdo_command_for_writing(msg,obj->nbit);
-	if(!error){ 
+				if(obj->attribute&WO){
+				error = check_sdo_command_for_writing(msg,obj->nbit);
+				if(!error){ 
                     switch(msg->frame_sdo.subindex){
                        case 0:rdata = wdata;
                               wdata = obj->data_object;
-			      nbit  = obj->nbit;break;       
+							  nbit  = obj->nbit;break;       
                        case 0xFF:rdata = &(obj->sub_index_ff);
                                  nbit = 0x20; SDO_ANSWER_4b;break;         
                         default:error = ERROR_SUB_INDEX;break;};	
@@ -594,10 +597,14 @@ void single_object(struct data_object *obj){
             if(!(obj->attribute & RO)) break;
             if(!(obj->sub_index)) break;
             copy_data(obj->rw_object,obj->data_object,obj->nbit);break;
+            
         case MAP_write_request: //rxPDO
             if(!(obj->attribute & WO)) break;
             if(!(obj->sub_index)) break;
             copy_data(obj->data_object,obj->rw_object,obj->nbit);break;
+            
+       /*response data_object | answer rw_data  *addr_objecta,nbit,attr;NULL - no object.
+          * for fast processing mapping*/     
         case MAP_info:
             obj->rw_object = obj->sub_index?NULL: obj->data_object;break;
         default:break;
@@ -630,10 +637,10 @@ void array_object(struct data_object *obj){
                         case 0xFF:rdata = &(obj->sub_index_ff);
                                   nbit = 0x20; SDO_ANSWER_4b;break;         
                         default:if(array->sub_index < (msg->frame_sdo.subindex))
-						error = ERROR_SUB_INDEX;break;
-			nbit = obj->nbit;
-			rdata = array->array;
-			rdata = rdata + ((nbit>>3)*((msg->frame_sdo.subindex)-1));
+											error = ERROR_SUB_INDEX;break;
+                                nbit = obj->nbit;
+								rdata = array->array;
+								rdata = rdata + ((nbit>>3)*((msg->frame_sdo.subindex)-1));
                         break;}		
                  }
              }else error = ERROR_NO_READ;	
@@ -661,6 +668,9 @@ void array_object(struct data_object *obj){
                       msg->frame_sdo.dlc = 0x08;}
           copy_data(wdata,rdata,nbit);            
           break;         
+         
+        /*not a quick method read write mapping -> func_data 
+          data_object rw_object  sub_index & nbit*/ 
           
         case MAP_read_request:// txPDO
         
@@ -668,8 +678,12 @@ void array_object(struct data_object *obj){
             nbit = obj->nbit;
             rdata = array->array;
             if(!rdata) break;
-            rdata = !(obj->sub_index)?&array->sub_index : 
-					rdata + ((nbit>>3)*((obj->sub_index)-1));
+            switch(obj->sub_index){
+                case 0:rdata =&array->sub_index;nbit=0x08;break; 
+                case 0xFF: rdata=&(obj->sub_index_ff);nbit=0x20;break;
+                default:if(array->sub_index < obj->sub_index){nbit= 0;break;};
+                        rdata=rdata + ((nbit>>3)*((obj->sub_index)-1));
+                    break;}
 			copy_data(obj->rw_object,rdata,nbit);		
             break;
             
@@ -685,7 +699,8 @@ void array_object(struct data_object *obj){
             break;
   
          /*response data_object | answer rw_data  *addr_objecta,nbit,attr;NULL - no object.
-          * for fast processing mapping*/   
+          * for fast processing mapping*/ 
+            
         case MAP_info:
         
 			if(!obj->data_object){obj->rw_object= NULL;return;} 
@@ -698,7 +713,8 @@ void array_object(struct data_object *obj){
 						  rdata = rdata?rdata + ((nbit>>3)*((obj->sub_index)-1)):NULL;
 			};
 			obj->rw_object = rdata;obj->nbit = nbit;return;
-            break;         
+            break; 
+            
       default:break;
      }
 };
