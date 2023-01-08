@@ -476,19 +476,12 @@ struct data_object{
     uint8_t sub_index;
     uint32_t sub_index_ff;
 };
+
 void copy_data (uint8_t* wdata, uint8_t* rdata, uint8_t nbit){
     if(!wdata || !rdata)return;
     nbit >>=3;
     for(uint8_t i=0;i<nbit;i++){*(wdata + i) = *(rdata+i);}
 };
-
-void single_object_processing(struct rw_object *obj){
-
-
-
-};
-
-
 
 
 
@@ -550,13 +543,15 @@ void one_type_array_response(struct obj_info *info,uint8_t attr,uint8_t nbit){
 
 void single_object(struct data_object *obj){
     
-    uint8_t *wdata,*rdata,nbit;
+    void *wdata,*rdata;
+    uint8_t  nbit;
+    CanOpen_msg* msg;
     if(!obj)return;
     
     switch(obj->request_type){
         
        case SDO_request:
-            CanOpen_msg *msg = obj->rw_object;
+            msg = obj->rw_object;
             if(!msg) return;
             uint8_t error = ERROR_SDO_SERVER;
             wdata = &msg->frame_sdo.data;
@@ -586,7 +581,7 @@ void single_object(struct data_object *obj){
                         default:error = ERROR_SUB_INDEX;break;};	
 				}}else error = ERROR_NO_SAVE;
 		  }          
-          if(error){rdata = (error_msg + error);
+          if(error){  rdata = &error_msg[error];
                       nbit = 0x20;
                       msg->frame_sdo.cmd = RESPONSE_ERROR;
                       msg->frame_sdo.dlc = 0x08;}
@@ -614,7 +609,9 @@ void single_object(struct data_object *obj){
 
 void array_object(struct data_object *obj){
 	
-    uint8_t *wdata,*rdata,nbit;
+    void *wdata,*rdata;
+    uint8_t nbit;
+    CanOpen_msg* msg;
     if(!obj)return;
     struct arr_object* array = obj->data_object;
     if(!array) return;
@@ -622,7 +619,7 @@ void array_object(struct data_object *obj){
     switch(obj->request_type){
 		
        case SDO_request:
-            CanOpen_msg *msg = obj->rw_object;
+            msg = obj->rw_object;
             if(!msg)return;
             uint8_t error = ERROR_SDO_SERVER;
             wdata = &msg->frame_sdo.data;
@@ -693,7 +690,7 @@ void array_object(struct data_object *obj){
             nbit = obj->nbit;
             wdata = array->array;
             if(!wdata) break;
-            wdata = (!(obj->sub_index)|| obj->sub_index 0xFF)? NULL : 
+            wdata = (!(obj->sub_index)|| obj->sub_index == 0xFF)? NULL : 
 					wdata + ((nbit>>3)*((obj->sub_index)-1));
 			copy_data(wdata,obj->rw_object,nbit);		
             break;
