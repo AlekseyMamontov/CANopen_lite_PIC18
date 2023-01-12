@@ -783,37 +783,41 @@ void pdo_object(struct data_object *obj){
             case 1:                                    
               if(msg->frame_sdo.cmd != GET_4b){error = ERROR_SDO_SERVER;break;}  
               if(msg->frame_sdo.dlc < 8){error = ERROR_SMALL_DATA_OBJ;break;}
-              if(lock){ /// do the right processing!!! 
+              if(!lock){error = ERROR_NO_SAVE;break;}
+                      // do the right processing!!! 
                  pdo->cob_id = msg->frame_sdo.data.data32&0x800007FF;
                  if((pdo->cob_id&0x80000000) == 0) pdo->status |= PDO_INIT;    
-             }else{error = ERROR_NO_SAVE;}            
+                        
                break;
                
         // Transmission_type 8bit
             case 2:   
-              if(lock){  
+              if(!lock){error = ERROR_NO_SAVE;break;} 
               if(msg->frame_sdo.cmd != GET_1b){error = ERROR_SDO_SERVER;break;}  
                  if(msg->frame_sdo.dlc < 5){error = ERROR_SMALL_DATA_OBJ;break;}
+            
                  pdo->Transmission_type = msg->frame_sdo.data.data8;
-             }else{error = ERROR_NO_SAVE;}; 
+                 
                 break;
                 
         // Inhibit_time; 16bit
             case 3: 
-              if(lock){ 
+              if(lock){error = ERROR_NO_SAVE;break;}
                 if(msg->frame_sdo.cmd != GET_2b){error = ERROR_SDO_SERVER;break;} 
-                if(msg->frame_sdo.dlc < 6){error = ERROR_SMALL_DATA_OBJ;break;}           
+                if(msg->frame_sdo.dlc < 6){error = ERROR_SMALL_DATA_OBJ;break;} 
+              
                   pdo->Inhibit_time = msg->frame_sdo.data.data16;                 
-              }else{error = ERROR_NO_SAVE;}
+            
                 break;
                 
         // Event_timer 16bit
             case 5:   
-              if(lock){ 
+              if(lock){error = ERROR_NO_SAVE;break;} 
                 if(msg->frame_sdo.cmd != GET_2b){error = ERROR_SDO_SERVER;break;} 
-                if(msg->frame_sdo.dlc < 6){error = ERROR_SMALL_DATA_OBJ;break;} 
+                if(msg->frame_sdo.dlc < 6){error = ERROR_SMALL_DATA_OBJ;break;}
+              
                   pdo->event_timer = msg->frame_sdo.data.data16;                
-              }else{error = ERROR_NO_SAVE;};                   
+                                 
                  break;
                  
             default:error = ERROR_SUB_INDEX;break;}}       
