@@ -91,23 +91,6 @@ of UNSIGNED8 and therefore not part of the ARRAY data*/
 /* structure */
 
 
-struct OD_object{
-    
-    uint16_t index;
-    void* data;
-    void (*func_data)(struct data_object *obj);
-    
-};
-
-
-struct obj_info{
-    
-    void *  object; // -> (object->data) <- object+sub_index
-    uint8_t sub_nbit;// -> sub_index ; <-nbit
-    uint8_t access;
-    
-};
-
 struct map_info{
     
 	uint8_t  nbit; 
@@ -128,6 +111,14 @@ struct data_object{
     
 };
 
+struct OD_object{
+    
+    uint16_t index;
+    void* data;
+    void (*func_data)(struct data_object *obj);
+    
+};
+
 struct one_type_array{
     
     uint8_t sub_index;
@@ -137,9 +128,9 @@ struct one_type_array{
 
 struct arr_object{
     
-    uint8_t sub_index;
-    uint8_t nbit;
-    void*   array;
+    uint8_t  sub_index;
+    uint8_t* nbit;
+    void*    array;
     
 };    
     
@@ -149,6 +140,8 @@ union map_data{
 	uint32_t        data32;
     
 };
+
+#define MAX_MAP_DATA 8
 
 struct PDO_mapping {
     
@@ -179,7 +172,7 @@ struct PDO_object{
     PDO_mapping* pdo_map;
     void *       node_parent;
     void         (*process_map)(struct PDO_object*);
-    uint8_t      data[8];
+    uint8_t      data[MAX_MAP_DATA];
     
 };  
 
@@ -206,7 +199,6 @@ union cob_id{
            uint8_t valid : 1;              
             }pdo;     
 };
-
 
 /*  struct msg  */
 
@@ -286,6 +278,27 @@ typedef union {
 #define COB_ID      array[1]&0x7f
 
 
+#define MAX_SYNC_OBJECT 8
+
+struct xCanOpen{
+
+    uint8_t                  id; /*id */
+    uint8_t                mode; /*pre-orintal etc.*/
+
+    CanOpen_msg*    current_msg;
+
+    uint8_t  (*init)(uint8_t id);
+    uint8_t  (*receiving_message)(CanOpen_msg *msg);
+    uint8_t  (*sending_message)(CanOpen_msg *msg);
+
+    struct OD_object*   map; 
+    struct PDO_object*  pdo[8];
+    struct SDO_object*  sdo[1];
+
+    uint8_t Sync_object [MAX_SYNC_OBJECT];
+
+};
+
 /* --------------- ERROR ----------------*/
 
 #define OK_SAVE         0x60
@@ -346,8 +359,8 @@ const uint32_t error_msg[]={
 void (*Object_call)(struct data_object *obj);
 
 /*index 0000 -  0xFFFF -> the end)*/
-struct 
-OD_object* OD_search_index(uint16_t index, struct OD_object* tab){   
+
+struct OD_object* OD_search_index(uint16_t index, struct OD_object* tab){   
     while (tab->index < index){tab++;} 
     return tab = tab->index == index?tab:NULL;};
 
@@ -382,7 +395,7 @@ void* copy_data_answer (uint8_t* wdata, uint8_t* rdata, uint8_t nbit){
 #define RXPDO 0
 #define TXPDO 1
 
-#define MAX_MAP_DATA 8
+
 #define MAX_MAP_NBIT MAX_MAP_DATA*8 //warning 8bit x n_byte
 
 
@@ -399,15 +412,18 @@ void map_object_check(struct PDO_object* pdo){
    if(pdo->pdo_map->sub_index > MAX_MAP_DATA)
                     pdo->pdo_map->sub_index = MAX_MAP_DATA;
 
-   while(sub_index < pdo->pdo_map->sub_index){      
+   while(sub_index < pdo->pdo_map->sub_index){
+       
        if(!(pdo->pdo_map->map[sub_index].info.index)||
           !(pdo->pdo_map->map[sub_index].info.nbit )||
           !(pdo->pdo_map->quick_mapping[sub_index])) break;
+       
        sum_nbit += pdo->pdo_map->map[sub_index].info.nbit;
        if(sum_nbit > MAX_MAP_NBIT) break; 
        sub_index ++;
    };
    pdo->pdo_map->sub_index = sub_index;
+   
 };
 
 void process_the_RxPDO_message(struct PDO_object* pdo){
@@ -423,7 +439,8 @@ void process_the_RxPDO_message(struct PDO_object* pdo){
     
         sum_nbit += pdo->pdo_map->map[index].info.nbit;
         if(sum_nbit > MAX_MAP_NBIT) break;
-        if(!(pdo->pdo_map->quick_mapping[index])) break;    
+        if(!(pdo->pdo_map->quick_mapping[index])) break;
+        
             switch(pdo->pdo_map->map[index].info.nbit){   
                 case 0x08: *((uint8_t*)(pdo->pdo_map->quick_mapping[index])) = 
                             *(data+addr);addr++;break;
@@ -434,8 +451,10 @@ void process_the_RxPDO_message(struct PDO_object* pdo){
                 case 0x20: *((uint32_t*)(pdo->pdo_map->quick_mapping[index])) = 
                             *((uint32_t*)(data+addr));addr +=4;break;
                 default: return; break;
+                
         }; index++;
-    };    
+    };
+    
 };
 
 void process_the_TxPDO_message(struct PDO_object* pdo){
@@ -451,7 +470,8 @@ void process_the_TxPDO_message(struct PDO_object* pdo){
     
         sum_nbit += pdo->pdo_map->map[index].info.nbit;
         if(sum_nbit > MAX_MAP_NBIT) break;
-        if(!(pdo->pdo_map->quick_mapping[index])) break;    
+        if(!(pdo->pdo_map->quick_mapping[index])) break;
+        
             switch(pdo->pdo_map->map[index].info.nbit){   
                 case 0x08: *(data+addr) = 
                             *((uint8_t*)(pdo->pdo_map->quick_mapping[index]));
@@ -466,8 +486,10 @@ void process_the_TxPDO_message(struct PDO_object* pdo){
                            *((uint32_t*)(pdo->pdo_map->quick_mapping[index])); 
                             addr +=4;break;
                 default: return; break;
+                
         }; index++;
-    };    
+    };
+    
 };
 
 void process_the_PDO_message(struct PDO_object* pdo){
@@ -483,6 +505,12 @@ void copy_rxPDO_message_to_array(CanOpen_msg* msg,struct PDO_object* pdo){
     pdo->status = pdo->status | NEW_MSG_PDO;
     
 };
+
+void the_PDO(struct PDO_object* pdo){
+    
+    
+};
+
 
 
 /* ----------------  SDO COMMUNICATION -----------------*/
@@ -520,8 +548,6 @@ void copy_rxPDO_message_to_array(CanOpen_msg* msg,struct PDO_object* pdo){
 
 
 
-
-
 uint8_t check_sdo_command_for_writing(CanOpen_msg *msg,uint8_t nbit){
     
     uint8_t dlc = 4+(nbit >> 3);     
@@ -551,10 +577,10 @@ uint8_t check_sdo_command_for_reading(CanOpen_msg *msg,uint8_t nbit){
 
 /*------------ function Object proccesing -------*/
 
-#define SDO_request 0
-#define MAP_read_request 1
-#define MAP_write_request 2
-#define MAP_info 3
+#define SDO_request       0
+#define MAP_txpdo_request 1
+#define MAP_rxpdo_request 2
+#define MAP_info          3
 
 void single_object(struct data_object *obj){
    
@@ -602,14 +628,14 @@ void single_object(struct data_object *obj){
           copy_data(wdata,rdata,nbit);  
           break;         
           
-        case MAP_read_request: //txPDO
+        case MAP_txpdo_request: 
             if(!(obj->attribute & RO)) break;
-            if(!(obj->sub_index)) break;
+            if(obj->sub_index) break;
             copy_data(obj->rw_object,obj->data_object,obj->nbit);break;
             
-        case MAP_write_request: //rxPDO
+        case MAP_rxpdo_request: 
             if(!(obj->attribute & WO)) break;
-            if(!(obj->sub_index)) break;
+            if(obj->sub_index) break;
             copy_data(obj->data_object,obj->rw_object,obj->nbit);break;
             
        /*response data_object | answer rw_data  *addr_objecta,nbit,attr;NULL - no object.
@@ -682,7 +708,7 @@ void one_type_array_object(struct data_object *obj){
         /*not a quick method read write mapping -> func_data 
           data_object rw_object  sub_index & nbit*/ 
           
-        case MAP_read_request:// txPDO
+        case MAP_txpdo_request:
         
             if(!(obj->attribute & RO))break;
             rdata = array->array;
@@ -697,7 +723,7 @@ void one_type_array_object(struct data_object *obj){
 			copy_data(obj->rw_object,rdata,nbit);		
             break;
             
-        case MAP_write_request: //rxPDO
+        case MAP_rxpdo_request: 
         
             if(!(obj->attribute & WO)) return;
             wdata =(uint8_t*) array->array;
@@ -813,7 +839,7 @@ void pdo_object(struct data_object *obj){
           if(msg->frame_sdo.dlc < 5) error = ERROR_SMALL_DATA_OBJ;
           if(!pdo) error = ERROR_SYSTEM;
           if(!error){      
-            uint8_t lock = pdo->cob_id&0x80000000?1:0;
+            uint8_t lock = pdo->cob_id&PDO_DISABLED?1:0;
             switch(msg->frame_sdo.subindex){
                 
         // sub-index
@@ -826,7 +852,7 @@ void pdo_object(struct data_object *obj){
               if(!lock){error = ERROR_NO_SAVE;break;}
                       // do the right processing!!! 
                  pdo->cob_id = msg->frame_sdo.data.data32&0x800007FF;
-                 if((pdo->cob_id&0x80000000) == 0) pdo->status |= PDO_INIT;    
+                 if((pdo->cob_id&PDO_DISABLED) == 0) pdo->status |= PDO_INIT;    
                         
                break;
                
@@ -868,10 +894,10 @@ void pdo_object(struct data_object *obj){
         
            break; 
            
-    case MAP_read_request:
+    case MAP_txpdo_request:
            break;
            
-    case MAP_write_request:
+    case MAP_rxpdo_request:
            break;
            
     case MAP_info:    
@@ -885,6 +911,10 @@ void pdo_object(struct data_object *obj){
            break;
     };  
 };
+
+
+void ro_pdo_object_(struct data_object *obj){obj->attribute=RO;pdo_object(obj);}
+void rw_pdo_object_(struct data_object *obj){obj->attribute=RW;pdo_object(obj);}
 
 
 /*------------------------- pdo_map object ------------------------------*/
@@ -914,7 +944,7 @@ void map_object(struct data_object *obj){
               switch(msg->frame_sdo.subindex){
                 case 0:  msg->frame_sdo.data.data8  = pdo->pdo_map->sub_index;
                          SDO_ANSWER_1b;break;
-                case 0xFF: msg->frame_sdo.data.data32 = obj->sub_index_ff;
+                case 0xFF: msg->frame_sdo.data.data32 = (PDO_MAPPING << 8)| OD_DEFSTRUCT;
                            SDO_ANSWER_4b break;       
                 default: msg->frame_sdo.data.data32 = 
                          pdo->pdo_map->map[(msg->frame_sdo.subindex)-1].data32;
@@ -985,10 +1015,10 @@ void map_object(struct data_object *obj){
     if(error)ERR_MSG(error);               
     break;       
     
-    case MAP_read_request:
+    case MAP_txpdo_request:
       break;
       
-    case MAP_write_request:
+    case MAP_rxpdo_request:
       break;
       
     case MAP_info:       
@@ -1003,31 +1033,14 @@ void map_object(struct data_object *obj){
      break;};
 }
 
+void ro_map_object_(struct data_object *obj){obj->attribute=RO;pdo_object(obj);}
+void rw_map_object_(struct data_object *obj){obj->attribute=RW;pdo_object(obj);}
 
 
 /* ------------------ STRUCT CAN NODE ------------------*/
 
 #define n_FUNC_COMMAND 0x0f
-#define MAX_SYNC_OBJECT 8
 
-struct xCanOpen{
-
-uint8_t              cob_id; /*id */
-uint8_t                mode; /*pre-orintal etc.*/
-
-CanOpen_msg*    current_msg;
-
-uint8_t  (*init)(uint8_t id);
-uint8_t  (*receiving_message)(CanOpen_msg *msg);
-uint8_t  (*sending_message)(CanOpen_msg *msg);
-
-struct OD_object*   map; 
-struct PDO_object*  pdo[8];
-struct SDO_object*  sdo[1];
-
-uint8_t Sync_object [MAX_SYNC_OBJECT];
-
-};
 
 /* ------------ function obiect call -----------*/
 
@@ -1059,7 +1072,7 @@ void NMT_message_processing(struct xCanOpen *node){
         if ((0x7F & node->current_msg->can_frame.id) == 0){
              
             if(node->current_msg->can_frame.data1 == 0 ||
-               node->current_msg->can_frame.data1 == node->cob_id){
+               node->current_msg->can_frame.data1 == node->id){
                         
                 switch(node->current_msg->can_frame.data0){
                         
@@ -1184,7 +1197,13 @@ void NODE_message_processing(struct xCanOpen* node){
 
 /*-----------    processing PDO objects    ---------- */
 
-void Processing_pdo_objects(struct xCanOpen* node){};
+
+
+void Processing_pdo_objects(struct xCanOpen* node){
+
+
+
+};
 
 
 
