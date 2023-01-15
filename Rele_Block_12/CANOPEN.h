@@ -372,16 +372,20 @@ return  OD_search_index(msg->frame_sdo.data.map.index,tab);}
 
 
 void copy_data (uint8_t* wdata, uint8_t* rdata, uint8_t nbit){
+    
     if(!wdata || !rdata)return;
     nbit >>=3;
     for(uint8_t i=0;i<nbit;i++){*(wdata + i) = *(rdata+i);}
+    
 };
 
 void* copy_data_answer (uint8_t* wdata, uint8_t* rdata, uint8_t nbit){
+    
     if(!wdata || !rdata)return wdata;
     nbit >>=3;
     for(uint8_t i=0;i<nbit;i++){*(wdata + i) = *(rdata+i);}
     return (wdata+nbit);
+    
 };
 
 
