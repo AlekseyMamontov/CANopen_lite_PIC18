@@ -10,6 +10,44 @@
 #ifdef	__cplusplus
 extern "C" {
 #endif
+ 
+uint16_t 
+gpio_output = 0,
+gpio_output_old = 0,
+gpio_polary_output = 0,
+gpio_mask_output   = 0;
+uint8_t   
+gpio_input = 0, 
+gpio_polary_input = 0,
+gpio_mask_input   = 0;    
+    
+    
+    
+const 
+uint32_t    
+ N1000_Device_Type = 30191,
+ N1008_Device_name = 0,
+ N1009_Hardware_version = 0,
+ N100A_Software_version = 0;
+
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
     
 /*    
@@ -46,6 +84,7 @@ void irq_default(void){};
  void CANOPEN_ECAN_Initialize(uint8_t id)
 {
     uint16_t cob_id = id;
+             cob_id <<= 5;
     uint8_t  cob_id_h =  (cob_id&0xFF00)>>8;
     uint8_t  cob_id_l =  (cob_id&0x00FF);
 
@@ -80,24 +119,36 @@ void irq_default(void){};
     
     RXF1EIDH = 0x00; RXF1EIDL = 0x00;
     RXF1SIDH = 0x10; RXF1SIDL = 0x00; // 0x80
-       
+    
+    // 0x200+cob_id PDO1   
     RXF2EIDH = 0x00; RXF2EIDL = 0x00;
-    RXF2SIDH = 0x40|cob_id_h; RXF2SIDL = cob_id_l; // 0x200+cob_id PDO1
+    RXF2SIDH = 0x40|cob_id_h; 
+    RXF2SIDL = cob_id_l;
     
+    // 0x300+cob_id PDO2
     RXF3EIDH = 0x00; RXF3EIDL = 0x00;
-    RXF3SIDH = 0x60|cob_id_h; RXF3SIDL = cob_id_l; // 0x300+cob_id PDO2
+    RXF3SIDH = 0x60|cob_id_h;
+    RXF3SIDL = cob_id_l; 
     
+    // 0x400+cob_id PDO3
     RXF4EIDH = 0x00; RXF4EIDL = 0x00;
-    RXF4SIDH = 0x80|cob_id_h; RXF4SIDL = cob_id_l; // 0x400+cob_id PDO3
+    RXF4SIDH = 0x80|cob_id_h;
+    RXF4SIDL = cob_id_l; 
     
+    // 0x500+cob_id PDO4
     RXF5EIDH = 0x00; RXF5EIDL = 0x00;
-    RXF5SIDH = 0xA0|cob_id_h; RXF5SIDL = cob_id_l; // 0x500+cob_id PDO4
+    RXF5SIDH = 0xA0|cob_id_h;
+    RXF5SIDL = cob_id_l; 
     
+    // 0x600+cob_id rxSDO
     RXF6EIDH = 0x00; RXF6EIDL = 0x00;
-    RXF6SIDH = 0xC0|cob_id_h; RXF6SIDL = cob_id_l; // 0x600+cob_id rxSDO
+    RXF6SIDH = 0xC0|cob_id_h;
+    RXF6SIDL = cob_id_l;
     
+    // 0x700 NMT error
     RXF7EIDH = 0x00;RXF7EIDL = 0x00;
-    RXF7SIDH = 0xE0|cob_id_h; RXF7SIDL = cob_id_l;  // 0x700 NMT error
+    RXF7SIDH = 0xE0|cob_id_h;
+    RXF7SIDL = cob_id_l;  
     
     RXF8EIDH =  0x00; RXF8EIDL =  0x00; RXF8SIDH = 0x00; RXF8SIDL =  0x00;
     RXF9EIDH =  0x00; RXF9EIDL =  0x00; RXF9SIDH = 0x00; RXF9SIDL =  0x00;
@@ -107,10 +158,8 @@ void irq_default(void){};
     RXF13EIDH = 0x00; RXF13EIDL = 0x00;RXF13SIDH = 0x00; RXF13SIDL = 0x00;  
     RXF14EIDH = 0x00; RXF14EIDL = 0x00;RXF14SIDH = 0x00; RXF14SIDL = 0x00;
     
-    
-    RXF15EIDH = 0xFF;RXF15EIDL = 0xFF;
-    RXF15SIDH = 0xFF;RXF15SIDL = 0xE3; //mask
-
+    //mask
+    RXF15EIDH = 0xFF;RXF15EIDL = 0xFF;RXF15SIDH = 0xFF;RXF15SIDL = 0xE3;
     /**
     Initialize CAN Timings
     */
@@ -143,20 +192,18 @@ void irq_default(void){};
     while (0x00 != (CANSTAT & 0xE0)); // wait until ECAN is in Normal mode
 
 }
- 
+
 
  void GPIO_processing(){};
  
  
  
-///////////////////////////////////////////////////////////////////
 
-
+/* structure triac_block*/
 
 struct OD_object map[]={
 };
- 
- 
+  
 struct PDO_object 
 
 rx_pdo1,tx_pdo1,
