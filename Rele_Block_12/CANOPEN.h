@@ -153,6 +153,10 @@ struct PDO_mapping {
     
 };
 
+
+
+
+
 struct PDO_object{
     
     uint8_t     type; // RX = 0,TX = 1
@@ -850,7 +854,8 @@ void pdo_object(struct data_object *obj){
             case 0: error = ERROR_NO_SAVE;break;
             
         // sub-id 32bit
-            case 1:                                    
+            case 1:
+                
               if(msg->frame_sdo.cmd != GET_4b){error = ERROR_SDO_SERVER;break;}  
               if(msg->frame_sdo.dlc < 8){error = ERROR_SMALL_DATA_OBJ;break;}
               if(!lock){error = ERROR_NO_SAVE;break;}
@@ -861,7 +866,8 @@ void pdo_object(struct data_object *obj){
                break;
                
         // Transmission_type 8bit
-            case 2:   
+            case 2: 
+                
               if(!lock){error = ERROR_NO_SAVE;break;} 
               if(msg->frame_sdo.cmd != GET_1b){error = ERROR_SDO_SERVER;break;}  
                  if(msg->frame_sdo.dlc < 5){error = ERROR_SMALL_DATA_OBJ;break;}
@@ -872,6 +878,7 @@ void pdo_object(struct data_object *obj){
                 
         // Inhibit_time; 16bit
             case 3: 
+                
               if(lock){error = ERROR_NO_SAVE;break;}
                 if(msg->frame_sdo.cmd != GET_2b){error = ERROR_SDO_SERVER;break;} 
                 if(msg->frame_sdo.dlc < 6){error = ERROR_SMALL_DATA_OBJ;break;} 
@@ -881,7 +888,8 @@ void pdo_object(struct data_object *obj){
                 break;
                 
         // Event_timer 16bit
-            case 5:   
+            case 5:  
+                
               if(lock){error = ERROR_NO_SAVE;break;} 
                 if(msg->frame_sdo.cmd != GET_2b){error = ERROR_SDO_SERVER;break;} 
                 if(msg->frame_sdo.dlc < 6){error = ERROR_SMALL_DATA_OBJ;break;}
@@ -1201,11 +1209,50 @@ void NODE_message_processing(struct xCanOpen* node){
 
 /*-----------    processing PDO objects    ---------- */
 
+// 0 - ?????? ??? ???????? ??? sync
+// 1-240  ????????]
+//255 ????????? ??? ??????? ?????????]
+void pdo_object_type(struct PDO_object *pdo){
+    
+    if(!pdo)return;
+    if(pdo->cob_id&PDO_DISABLED) return;
+    switch(pdo->Transmission_type){
+        case 0:
+            if(pdo->status&0x01){};
+            
+            break;
+        case 0xfe:
+        break;
+        case 0xff:
+        default:
+            break;
+    }
+    
+};
+    
+    
+    
+    
+    
+    
+    
+    
+
+
+};
+
+
 
 
 void Processing_pdo_objects(struct xCanOpen* node){
 
-
+    struct PDO_object *pdo = node->pdo;
+    
+    
+    
+    
+    
+    
 
 };
 
