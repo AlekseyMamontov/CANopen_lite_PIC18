@@ -734,9 +734,9 @@ void one_type_array_object(struct data_object *obj){
             wdata =(uint8_t*) array->array;
             if(!wdata) break;
             wdata = (!(obj->sub_index)|| obj->sub_index == 0xFF)? NULL : 
-					wdata + ((nbit>>3)*((obj->sub_index)-1));
-                    nbit = obj->nbit;
-			copy_data(wdata,obj->rw_object,nbit);		
+	    wdata + ((nbit>>3)*((obj->sub_index)-1));
+            nbit = obj->nbit;
+	    copy_data(wdata,obj->rw_object,nbit);		
             break;
   
          /*response data_object | answer rw_data  *addr_objecta,nbit,attr;NULL - no object.
@@ -744,16 +744,16 @@ void one_type_array_object(struct data_object *obj){
             
         case MAP_info:
         
-			if(!obj->data_object){obj->rw_object= NULL;return;} 
-			switch(obj->sub_index){
-				 case 0: rdata = &array->sub_index;nbit = 0x08;obj->attribute = RO;break;
-				 case 0xFF : rdata = (uint8_t*)&(obj->sub_index_ff); nbit = 0x20;obj->attribute = RO;break;
-				 default: if(obj->sub_index > array->sub_index) rdata=NULL;nbit=0;break;
-						  rdata = (uint8_t*)array->array;
-						   nbit = obj->nbit;
-						  rdata = rdata?rdata + ((nbit>>3)*((obj->sub_index)-1)):NULL;
+		if(!obj->data_object){obj->rw_object= NULL;return;} 
+		switch(obj->sub_index){
+		   case 0: rdata = &array->sub_index;nbit = 0x08;obj->attribute = RO;break;
+		   case 0xFF : rdata = (uint8_t*)&(obj->sub_index_ff); nbit = 0x20;obj->attribute = RO;break;
+		   default: if(obj->sub_index > array->sub_index) rdata=NULL;nbit=0;break;
+			rdata = (uint8_t*)array->array;
+			nbit = obj->nbit;
+			rdata = rdata?rdata + ((nbit>>3)*((obj->sub_index)-1)):NULL;
 			};
-			obj->rw_object = rdata;obj->nbit = nbit;return;
+		obj->rw_object = rdata;obj->nbit = nbit;return;
             break;       
       default:break;
      }
