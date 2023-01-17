@@ -678,10 +678,10 @@ void one_type_array_object(struct data_object *obj){
                         case 0xFF:rdata = (uint8_t*)&(obj->sub_index_ff);
                                   nbit = 0x20; SDO_ANSWER_4b;break;         
                         default: if(array->sub_index < (msg->frame_sdo.subindex))
-											error = ERROR_SUB_INDEX;break;
+				error = ERROR_SUB_INDEX;break;
                                 nbit = obj->nbit;
-								rdata = (uint8_t*)array->array;
-								rdata = rdata + ((nbit>>3)*((msg->frame_sdo.subindex)-1));
+				rdata = (uint8_t*)array->array;
+				rdata = rdata + ((nbit>>3)*((msg->frame_sdo.subindex)-1));
                         break;}		
                  }
              }else error = ERROR_NO_READ;	
@@ -694,11 +694,11 @@ void one_type_array_object(struct data_object *obj){
                        case 0:error = ERROR_NO_SAVE;break;       
                        case 0xFF:rdata = (uint8_t*)&(obj->sub_index_ff);
                                  nbit = 0x20; SDO_ANSWER_4b;break;         
-                       default:if(array->sub_index < (msg->frame_sdo.subindex))
-												error = ERROR_SUB_INDEX;break;
-								rdata = wdata;
-								wdata = (uint8_t*)array->array;
-								wdata = wdata + ((nbit>>3)*((msg->frame_sdo.subindex)-1));		
+                       default:if(array->sub_index < (msg->frame_sdo.subindex)
+		       		error = ERROR_SUB_INDEX;break;
+				rdata = wdata;
+				wdata = (uint8_t*)array->array;
+				wdata = wdata + ((nbit>>3)*((msg->frame_sdo.subindex)-1));		
 						;}      	
 				}
 			 }else error = ERROR_NO_SAVE;
