@@ -154,9 +154,6 @@ struct PDO_mapping {
 };
 
 
-
-
-
 struct PDO_object{
     
     uint8_t     type; // RX = 0,TX = 1
@@ -1209,40 +1206,45 @@ void NODE_message_processing(struct xCanOpen* node){
 
 /*-----------    processing PDO objects    ---------- */
 
-// 0 - ?????? ??? ???????? ??? sync
-// 1-240  ????????]
-//255 ????????? ??? ??????? ?????????]
+
 void pdo_object_type(struct PDO_object *pdo){
     
     if(!pdo)return;
     if(pdo->cob_id&PDO_DISABLED) return;
     switch(pdo->Transmission_type){
-        case 0:
-            if(pdo->status&0x01){};
-            
-            break;
-        case 0xfe:
+ 
+/*PDO transmission is sent if the PDO data was changed by at least 1 bit.
+  interval before sending PDO = inhibit_time * 100ms;
+ */
+        case 0xFF:
+               
         break;
-        case 0xff:
+        
+/* Cyclically  
+ * Transfer PDO ,period  = inhibit_time * 100ms;
+   Receive PDOs, on the other hand, are parsed immediately upon receipt.
+ */
+        case 0xFE: 
+            
+        break; 
+        
+/* SYNC-Message
+ 0 - send only when an event occurs and SYNC
+ 1 -240 sent cyclically on SYNC
+ */
+        
         default:
-            break;
+            
+            if(pdo->Transmission_type > 0xF0) break;
+          
+        
+        break;    
+            
     }
     
 };
     
-    
-    
-    
-    
-    
-    
-    
-
-
-};
-
-
-
+   
 
 void Processing_pdo_objects(struct xCanOpen* node){
 
