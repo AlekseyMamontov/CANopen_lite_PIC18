@@ -153,19 +153,37 @@ struct PDO_mapping {
     
 };
 
+union cond {
+    
+    struct{
+    uint8_t sync       : 1; // sync
+    uint8_t new_msg    : 1; // new message rxPDO
+    uint8_t timer_event: 1; // 1 - the timer has worked
+    uint8_t pause_send : 1; // 1 - pause is over
+    uint8_t tx_event   : 1; // 1 - there is a change to send a message
+    uint8_t            : 1;    
+    uint8_t rx_tx      : 1; // 0 - rxPDO object, 1 - txPDO
+    uint8_t lock       : 1; // 1 - Lock
+   }        bit; 
+    uint8_t stat;
+    
+};
 
 struct PDO_object{
     
-    uint8_t     type; // RX = 0,TX = 1
-    uint8_t     status; 
-
+    union cond  cond;
+    
     // visible block
     
     uint8_t		sub_index ;
     uint8_t		Transmission_type;
+    uint8_t     sync_start_value;
+    
     uint32_t	cob_id ;
+    
     uint16_t	Inhibit_time; 	
     uint16_t	event_timer;
+    
     
     // quick access to the structure map
     
@@ -207,6 +225,7 @@ union cob_id{
 // #pragma pack(push, 1)
 
 typedef union {
+    
     struct {
         uint8_t idType;
         uint32_t id;         
@@ -397,17 +416,8 @@ void* copy_data_answer (uint8_t* wdata, uint8_t* rdata, uint8_t nbit){
 #define PDO_calculate_n	0x700 // 0b111 0000 0000
 #define PDO_mask_addr	0x7FF // 0b0111 1111 1111
 
-#define RXPDO 0
-#define TXPDO 1
-
 
 #define MAX_MAP_NBIT MAX_MAP_DATA*8 //warning 8bit x n_byte
-
-
-#define PDO_INIT    0b00000001
-#define NEW_MSG_PDO 0b00000010
-
-
 
 
 void map_object_check(struct PDO_object* pdo){
@@ -498,8 +508,10 @@ void process_the_TxPDO_message(struct PDO_object* pdo){
 };
 
 void process_the_PDO_message(struct PDO_object* pdo){
-    if(pdo->type == TXPDO)process_the_TxPDO_message(pdo);
-    else process_the_RxPDO_message(pdo);
+    
+    if(pdo->cond.bit.rx_tx){process_the_TxPDO_message(pdo);
+   }else process_the_RxPDO_message(pdo);
+    
 };
 
 void copy_rxPDO_message_to_array(CanOpen_msg* msg,struct PDO_object* pdo){
@@ -507,7 +519,7 @@ void copy_rxPDO_message_to_array(CanOpen_msg* msg,struct PDO_object* pdo){
     if(!(msg->can_frame.dlc)) return;
     for(uint8_t i= 0; i< MAX_MAP_DATA ;i++){
         pdo->data[i] = i < msg->can_frame.dlc?msg->array[i+7]:0;}
-    pdo->status = pdo->status | NEW_MSG_PDO;
+    pdo->cond.bit.new_msg = 1; // new message
     
 };
 
@@ -596,6 +608,7 @@ void single_object(struct data_object *obj){
     switch(obj->request_type){
         
        case SDO_request:
+           
             msg = obj->rw_object;
             if(!msg) return;
             uint8_t error = ERROR_SDO_SERVER;
@@ -817,6 +830,7 @@ void pdo_object(struct data_object *obj){
   switch(obj->request_type){
 		
     case SDO_request:
+        
         error = ERROR_SDO_SERVER;
         msg = obj->rw_object;
         if(!msg)return;
@@ -848,6 +862,7 @@ void pdo_object(struct data_object *obj){
             switch(msg->frame_sdo.subindex){
                 
         // sub-index
+                
             case 0: error = ERROR_NO_SAVE;break;
             
         // sub-id 32bit
@@ -855,17 +870,17 @@ void pdo_object(struct data_object *obj){
                 
               if(msg->frame_sdo.cmd != GET_4b){error = ERROR_SDO_SERVER;break;}  
               if(msg->frame_sdo.dlc < 8){error = ERROR_SMALL_DATA_OBJ;break;}
-              if(!lock){error = ERROR_NO_SAVE;break;}
+              if(!pdo->cond.bit.lock){error = ERROR_NO_SAVE;break;}
                       // do the right processing!!! 
                  pdo->cob_id = msg->frame_sdo.data.data32&0x800007FF;
-                 if((pdo->cob_id&PDO_DISABLED) == 0) pdo->status |= PDO_INIT;    
-                        
+                 pdo->cond.bit.lock = pdo->cob_id&PDO_DISABLED?1:0;
+        
                break;
                
         // Transmission_type 8bit
             case 2: 
                 
-              if(!lock){error = ERROR_NO_SAVE;break;} 
+              if(!pdo->cond.bit.lock){error = ERROR_NO_SAVE;break;} 
               if(msg->frame_sdo.cmd != GET_1b){error = ERROR_SDO_SERVER;break;}  
                  if(msg->frame_sdo.dlc < 5){error = ERROR_SMALL_DATA_OBJ;break;}
             
@@ -876,7 +891,7 @@ void pdo_object(struct data_object *obj){
         // Inhibit_time; 16bit
             case 3: 
                 
-              if(lock){error = ERROR_NO_SAVE;break;}
+              if(!pdo->cond.bit.lock){error = ERROR_NO_SAVE;break;}
                 if(msg->frame_sdo.cmd != GET_2b){error = ERROR_SDO_SERVER;break;} 
                 if(msg->frame_sdo.dlc < 6){error = ERROR_SMALL_DATA_OBJ;break;} 
               
@@ -887,7 +902,7 @@ void pdo_object(struct data_object *obj){
         // Event_timer 16bit
             case 5:  
                 
-              if(lock){error = ERROR_NO_SAVE;break;} 
+              if(!pdo->cond.bit.lock){error = ERROR_NO_SAVE;break;} 
                 if(msg->frame_sdo.cmd != GET_2b){error = ERROR_SDO_SERVER;break;} 
                 if(msg->frame_sdo.dlc < 6){error = ERROR_SMALL_DATA_OBJ;break;}
               
@@ -909,14 +924,16 @@ void pdo_object(struct data_object *obj){
     case MAP_rxpdo_request:
            break;
            
-    case MAP_info:    
+    case MAP_info:
+        
           switch(obj->sub_index){
-                case 0: obj->rw_object = &(pdo->sub_index);obj->nbit = 0x08;break;
-                case 1: obj->rw_object = &(pdo->cob_id);obj->nbit = 0x20;break;       
-                case 2: obj->rw_object = &(pdo->Transmission_type);obj->nbit = 0x08;break;
-                case 3: obj->rw_object = &(pdo->Inhibit_time);obj->nbit = 0x10;break;       
-                case 5: obj->rw_object = &(pdo->event_timer);obj->nbit = 0x10;break;
-                default:obj->rw_object = NULL;obj->sub_index = 0x00;break;}        
+                case 0: obj->rw_object = &(pdo->sub_index);error = 0x08;break;
+                case 1: obj->rw_object = &(pdo->cob_id);error = 0x20;break;       
+                case 2: obj->rw_object = &(pdo->Transmission_type);error = 0x08;break;
+                case 3: obj->rw_object = &(pdo->Inhibit_time);error = 0x10;break;       
+                case 5: obj->rw_object = &(pdo->event_timer);error = 0x10;break;
+                default:obj->rw_object = NULL; error = 0x00;break;}
+           obj->nbit = error;
            break;
     };  
 };
@@ -1002,11 +1019,9 @@ void map_object(struct data_object *obj){
                     }else if(!(info.access&WO)){error = ERROR_OBJECT_PDO;break;}
                    */
                    
-                   if(pdo->type == RXPDO){ 
-                       if(!(info.attribute&WO)){error = ERROR_OBJECT_PDO;break;} 
-                   }else if(pdo->type == TXPDO){
-                       if(!(info.attribute&RO)){error = ERROR_OBJECT_PDO;break;}
-                   }else{error = ERROR_SYSTEM;break;};
+                   if(pdo->cond.bit.rx_tx){ //tx = 1
+                        if(!(info.attribute&RO)){error = ERROR_OBJECT_PDO;break;}
+                  }else if(!(info.attribute&WO)){error = ERROR_OBJECT_PDO;break;}
                       
                    if(info.nbit != msg->frame_sdo.data.map.nbit){
                                           error = ERROR_LEN_OBJECT;break;}    
@@ -1100,9 +1115,11 @@ void NMT_message_processing(struct xCanOpen *node){
 void SYNC_message_processing(struct xCanOpen *node){  
     
     for(uint8_t n=0; n<MAX_SYNC_OBJECT; n++){
-      if(node->Sync_object[n]) node->Sync_object[n]--;
-    };
-    
+      if(node->pdo[n] == NULL) continue;
+      if(node->pdo[n]->Transmission_type > 240)continue;
+      if(node->Sync_object[n])node->Sync_object[n]--;
+      if(node->Sync_object[n] == 0) node->pdo[n]->cond.bit.sync = 1; 
+    };   
 };
     
 /*--------------------- Time ------------------------*/
@@ -1125,7 +1142,6 @@ void rxPDO_message_processing(uint8_t code,struct xCanOpen *node){
     if(pdo->cob_id&PDO_DISABLED) return;
     
     copy_rxPDO_message_to_array(node->current_msg,pdo);
-    pdo->status |= NEW_MSG_PDO;
     
 };
 
@@ -1217,6 +1233,10 @@ void pdo_object_type(struct PDO_object *pdo){
   interval before sending PDO = inhibit_time * 100ms;
  */
         case 0xFF:
+            
+            
+            
+            
                
         break;
         
@@ -1226,12 +1246,20 @@ void pdo_object_type(struct PDO_object *pdo){
  */
         case 0xFE: 
             
+            
+            
+            
+            
         break; 
         
 /* SYNC-Message
  0 - send only when an event occurs and SYNC
  1 -240 sent cyclically on SYNC
  */
+        case 0x00: 
+            
+        break;  
+        
         
         default:
             
