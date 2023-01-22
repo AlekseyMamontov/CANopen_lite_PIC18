@@ -161,10 +161,11 @@ union cond {
     uint8_t timer_event: 1; // 1 - the timer has worked
     uint8_t pause_send : 1; // 1 - pause is over
     uint8_t event_txpdo: 1; // 1 - there is a change to send a message
-    uint8_t            : 1;    
+    uint8_t init_pdo   : 1; // 1 - xPDO init   
     uint8_t rx_tx      : 1; // 0 - rxPDO object, 1 - txPDO
     uint8_t lock       : 1; // 1 - Lock
    }       flag; 
+   
     uint8_t stat;
     
 };
@@ -540,7 +541,7 @@ void copy_rxPDO_message_to_array(CanOpen_msg* msg,struct PDO_object* pdo){
 void pdo_object_type(struct PDO_object *pdo){
     
     if(!pdo)return;
-    if(pdo->cond->flag.lock) return;
+    if(pdo->cond.flag.lock) return;
     switch(pdo->Transmission_type){
  
 /*PDO transmission is sent if the PDO data was changed by at least 1 bit.
@@ -617,6 +618,7 @@ void pdo_object_type(struct PDO_object *pdo){
                 if(pdo->func->process_rxpdo)pdo->func->process_rxpdo(pdo);
                 pdo->cond.flag.new_msg = 0;
                 pdo->cond.flag.sync = 0;
+                
             }
             
         break;  
@@ -641,6 +643,7 @@ void pdo_object_type(struct PDO_object *pdo){
                 pdo->cond.flag.new_msg = 0;
                 pdo->cond.flag.sync = 0;
                 pdo->counter_sync = pdo->Transmission_type;
+                
             }
         break;         
     } 
@@ -992,6 +995,7 @@ void pdo_object(struct data_object *obj){
                       // do the right processing!!! 
                  pdo->cob_id = msg->frame_sdo.data.data32&0x800007FF;
                  pdo->cond.flag.lock = pdo->cob_id&PDO_DISABLED?1:0;
+                 if(!pdo->cond.flag.lock)pdo->cond.flag.init_pdo = 1;
         
                break;
                
@@ -1004,6 +1008,8 @@ void pdo_object(struct data_object *obj){
             
                  pdo->Transmission_type = msg->frame_sdo.data.data8;
                  
+                 pdo->cond.flag.init_pdo = 1;
+
                 break;
                 
         // Inhibit_time; 16bit
@@ -1097,13 +1103,12 @@ void map_object(struct data_object *obj){
 // write               
     }else if((msg->frame_sdo.cmd&0xE0) == WRITE_REQUEST){ 
        if(obj->attribute&WO){
-         error = 0;
-         lock = pdo->cob_id&PDO_DISABLED?1:0;  
+         error = 0; 
          if(msg->frame_sdo.subindex >MAX_MAP_DATA) error = ERROR_SUB_INDEX;
          if(msg->frame_sdo.dlc < 5) error = ERROR_SMALL_DATA_OBJ; 
          if(!pdo) error = ERROR_SYSTEM;  
          if(!error){
-            if(lock){  
+            if(pdo->cond.flag.lock){  
               switch(msg->frame_sdo.subindex){
               case 0:
                  if(msg->frame_sdo.cmd != GET_1b){error = ERROR_SDO_SERVER;break;}              
@@ -1290,7 +1295,7 @@ void rxSDO_message_processing(uint8_t code,struct xCanOpen* node){// client -> s
     
 };    
    
-/*---------------------- message_processing Node ----------------------*/
+/*---------------- message_processing Node ----------------*/
 
 // --- function code ------
 
@@ -1339,15 +1344,24 @@ void NODE_message_processing(struct xCanOpen* node){
 
 void Processing_pdo_objects(struct xCanOpen* node){
 
+    if(node->mode != OPERATIONAL) return;
+    
    for(uint8_t i=0;i<MAX_PDO_OBJECT;i++){
-   
-       if(node->pdo[i] == NULL)pdo_object_type(node->pdo[i]); 
-   
+       if(node->pdo[i] != NULL)pdo_object_type(node->pdo[i]);  
    }; 
+   
 };
 
+void pdo_objects_add_id(struct xCanOpen* node){
 
-
+   for(uint8_t i=0;i<MAX_PDO_OBJECT;i++){  
+       if(node->pdo[i] != NULL) {
+           node->pdo[i]->cob_id |= node->id;
+           node->pdo[i]->cond.flag.init_pdo = 1;
+       } 
+   };
+   
+};
 
 
 
