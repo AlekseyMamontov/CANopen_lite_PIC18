@@ -11,32 +11,45 @@
 extern "C" {
 #endif
  
-uint16_t 
-gpio_output = 0,
+ /* DS-401*/   
+    
+uint16_t        
+gpio_output = 0,       //6300h
 gpio_output_old = 0,
-gpio_polary_output = 0,
-gpio_mask_output   = 0;
+gpio_polary_output = 0,//6302h
+gpio_mask_output   = 0;//6308h
+
 uint8_t   
-gpio_input = 0, 
-gpio_polary_input = 0,
-gpio_mask_input   = 0;    
+gpio_input = 0,         //6000h
+gpio_polary_input = 0,  //6002h
+gpio_mask_input   = 0;  //6003h  
     
-    
+ 
+
+
     
 const 
-uint32_t    
+uint32_t
+
+ /* 401d (0x191) | 16th Bit Digital input | 17th Bit Digital output */
+
  N1000_Device_Type = 30191,
  N1008_Device_name = 0,
  N1009_Hardware_version = 0,
  N100A_Software_version = 0;
 
 
+const
+uint8_t 
+
+ N1001_Error_register = 0;
     
     
-    
-    
-    
-    
+uint32_t data_error[5];  
+struct one_type_array N1003_Error = {
+.sub_index = 5,
+.array = data_error,
+};   
     
     
     

@@ -18,15 +18,7 @@ void main(void)
     Triac_rele.mode = BOOT;
     Triac_rele.current_msg =(CanOpen_msg*)&msg;
   
-    rx_pdo1.cob_id = PDO_DISABLED + Triac_rele.id + rxPDO1;
-    rx_pdo2.cob_id = PDO_DISABLED + Triac_rele.id + rxPDO2;
-    rx_pdo1.cob_id = PDO_DISABLED + Triac_rele.id + rxPDO3;
-    rx_pdo1.cob_id = PDO_DISABLED + Triac_rele.id + rxPDO4;
-    
-    tx_pdo1.cob_id = PDO_DISABLED + Triac_rele.id + txPDO1;
-    tx_pdo1.cob_id = PDO_DISABLED + Triac_rele.id + txPDO2;
-    tx_pdo1.cob_id = PDO_DISABLED + Triac_rele.id + txPDO3;
-    tx_pdo1.cob_id = PDO_DISABLED + Triac_rele.id + txPDO4;    
+    pdo_objects_add_id(&Triac_rele); //node.id + pdo[].cobid
     
     CANOPEN_ECAN_Initialize(Triac_rele.id);
     
@@ -50,13 +42,15 @@ void main(void)
     
     while (1){
               
-       NODE_message_processing(&Triac_rele); 
-       GPIO_processing();
+       NODE_message_processing(&Triac_rele);      
        Processing_pdo_objects(&Triac_rele);
-
+       GPIO_processing();
+       
     };     
  };           
 
+ 
+ 
 /**
  End of File
 */
