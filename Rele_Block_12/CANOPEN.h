@@ -200,12 +200,13 @@ struct PDO_object{
     // quick access to the structure map
     
     struct PDO_mapping* pdo_map;
-    //void *              node_parent;
     
+    uint8_t     n_byte_pdo_map; // == msg->dlc? map_object_check()
     uint8_t     counter_sync;
     
     // function
     struct func_pdo  *func;
+  //void *       node_parent;
     
     // Buffer 
     uint8_t      data[MAX_MAP_DATA];
@@ -293,7 +294,7 @@ typedef union {
             uint8_t      : 1;
             uint8_t  lock: 1;                                
                  }      bit_id;        
-              }  cob;	   
+              }  cob_id;	   
         uint8_t  dlc;	  
         uint8_t data0; 
         uint8_t data1;
@@ -442,7 +443,7 @@ void map_object_check(struct PDO_object* pdo){
    if(pdo->pdo_map->sub_index > MAX_MAP_DATA)
                     pdo->pdo_map->sub_index = MAX_MAP_DATA;
 
-   while(sub_index < pdo->pdo_map->sub_index){
+   while(sub_index < (pdo->pdo_map->sub_index)){
        
        if(!(pdo->pdo_map->map[sub_index].info.index)||
           !(pdo->pdo_map->map[sub_index].info.nbit )||
@@ -452,6 +453,7 @@ void map_object_check(struct PDO_object* pdo){
        if(sum_nbit > MAX_MAP_NBIT) break; 
        sub_index ++;
    };
+   pdo->n_byte_pdo_map = sum_nbit >>3;
    pdo->pdo_map->sub_index = sub_index;
    
 };
@@ -524,24 +526,53 @@ void process_the_TxPDO_message(struct PDO_object* pdo){
 
 void process_the_PDO_message(struct PDO_object* pdo){
     
-    if(pdo->cond.flag.rx_tx){process_the_TxPDO_message(pdo);
-   }else process_the_RxPDO_message(pdo);
+    if(pdo->cond.flag.rx_tx){
+        pdo->func->process_txpdo(pdo);
+   }else 
+        pdo->func->process_rxpdo(pdo);
     
 };
 
+inline void copy_xPDO(uint8_t* wdata,uint8_t* rdata,uint8_t dlc){
+    
+    for(uint8_t i= 0; i< MAX_MAP_DATA ;i++){
+        *(wdata+i)= i < dlc?*(rdata+i):0;}
+    
+};
+
+
 void copy_rxPDO_message_to_array(CanOpen_msg* msg,struct PDO_object* pdo){
     
-    if(!(msg->can_frame.dlc)) return;
-    for(uint8_t i= 0; i< MAX_MAP_DATA ;i++){
-        pdo->data[i] = i < msg->can_frame.dlc?msg->array[i+7]:0;}
+    if(msg->can_frame.dlc < pdo->n_byte_pdo_map) return;
+    copy_xPDO (pdo->data,&msg->frame_pdo->data0,msg->frame_pdo->dlc);
     pdo->cond.flag.new_msg = 1; // new message
     
 };
+
+void copy_txPDO_array_to_message(CanOpen_msg* msg,struct PDO_object* pdo){
+    
+    copy_xPDO (&msg->frame_pdo->data0,pdo->data,msg->frame_pdo->dlc);
+    
+};
+
+void init_xPDO(struct PDO_object* pdo){
+
+    map_object_check(pdo);
+    
+    
+    
+
+};
+
+
+
+
 
 void pdo_object_type(struct PDO_object *pdo){
     
     if(!pdo)return;
     if(pdo->cond.flag.lock) return;
+
     switch(pdo->Transmission_type){
  
 /*PDO transmission is sent if the PDO data was changed by at least 1 bit.
@@ -550,18 +581,18 @@ void pdo_object_type(struct PDO_object *pdo){
         case 0xFF:
       
             if(pdo->cond.flag.rx_tx){
-         //txpdo       
+         //txpdo
+                pdo->cond.flag.new_msg = 0;
                 if(!pdo->cond.flag.event_txpdo)break;
                 if(!pdo->cond.flag.pause_send)break;
-                if(pdo->Event_timer){
-                    if(!pdo->cond.flag.timer_event)break;
-                };
-                
+                if(pdo->Event_timer && !pdo->cond.flag.timer_event)break;
+               
                 if(pdo->func->process_txpdo)pdo->func->process_txpdo(pdo);
                 
                 pdo->cond.flag.event_txpdo=0;
                 pdo->cond.flag.pause_send = 0;
                 pdo->cond.flag.timer_event =0;
+                pdo->cond.flag.new_msg = 1;
                 
                 pdo->func->start_Inhibit_timer(pdo);
                 pdo->func->start_event_timer(pdo);
@@ -582,12 +613,14 @@ void pdo_object_type(struct PDO_object *pdo){
         case 0xFE: 
             
             if(pdo->cond.flag.rx_tx){
-         //txpdo       
+         //txpdo
+                pdo->cond.flag.new_msg = 0;
                 if(!pdo->cond.flag.pause_send)break;        
                 if(pdo->func->process_txpdo)pdo->func->process_txpdo(pdo);
                 pdo->cond.flag.pause_send = 0;
                 //...start pause timer if inhibit_time !=0
                 pdo->func->start_Inhibit_timer(pdo);
+                pdo->cond.flag.new_msg = 1;
                 
             }else{
          //rxpdo       
@@ -605,16 +638,19 @@ void pdo_object_type(struct PDO_object *pdo){
         case 0x00:
             
              if(pdo->cond.flag.rx_tx){
-         //txpdo       
+         //txpdo 
+                pdo->cond.flag.new_msg = 0; 
                 if(!pdo->cond.flag.sync)break;
                 if(!pdo->cond.flag.event_txpdo)break;
                 if(pdo->func->process_txpdo)pdo->func->process_txpdo(pdo);
                 pdo->cond.flag.sync = 0;
                 pdo->cond.flag.event_txpdo = 0;
+                pdo->cond.flag.new_msg = 1;
+                
             }else{
          //rxpdo
                 if(!pdo->cond.flag.sync)break; 
-                if(!pdo->cond.flag.new_msg)break;
+                if(!pdo->cond.flag.new_msg)break; // +pdo->cond.flag.sync = 0;
                 if(pdo->func->process_rxpdo)pdo->func->process_rxpdo(pdo);
                 pdo->cond.flag.new_msg = 0;
                 pdo->cond.flag.sync = 0;
@@ -629,14 +665,16 @@ void pdo_object_type(struct PDO_object *pdo){
             if(pdo->Transmission_type > 0xF0) break;
             
             if(pdo->cond.flag.rx_tx){
-                                                    //txpdo       
+                
+                pdo->cond.flag.new_msg = 0;  //txpdo       
                 if(!pdo->cond.flag.sync)break;
                 if(pdo->func->process_txpdo)pdo->func->process_txpdo(pdo);
                 pdo->cond.flag.sync = 0;
                 pdo->counter_sync = pdo->Transmission_type;
+                pdo->cond.flag.new_msg = 1;
                 
             }else{
-                                                    //rxpdo
+                                            //rxpdo
                 if(!pdo->cond.flag.sync)break; 
                 if(!pdo->cond.flag.new_msg)break;
                 if(pdo->func->process_rxpdo)pdo->func->process_rxpdo(pdo);
@@ -1262,7 +1300,7 @@ void rxPDO_message_processing(uint8_t code,struct xCanOpen *node){
     
     if(code > 7) return;
     if(node->mode != OPERATIONAL) return;
-    if(pdo->cob_id&PDO_DISABLED) return;
+    if(pdo->cond.flag.lock) return;
     
     copy_rxPDO_message_to_array(node->current_msg,pdo);
     
@@ -1347,7 +1385,21 @@ void Processing_pdo_objects(struct xCanOpen* node){
     if(node->mode != OPERATIONAL) return;
     
    for(uint8_t i=0;i<MAX_PDO_OBJECT;i++){
-       if(node->pdo[i] != NULL)pdo_object_type(node->pdo[i]);  
+       
+       if(node->pdo[i] != NULL){     
+           pdo_object_type(node->pdo[i]);
+           // tx?
+           if(node->pdo[i]->cond.flag.rx_tx && node->pdo[i]->cond.flag.new_msg){
+               
+              node->current_msg->frame_pdo.cob_id = node->pdo[i]->cob_id; 
+              node->current_msg->frame_pdo.dlc = node->pdo[i]->n_byte_pdo_map;
+              node->current_msg->frame_pdo.idType = dSTANDARD_CAN_MSG_ID_2_0B;
+              copy_txPDO_array_to_message(node->current_msg,node->pdo[i]);
+              node->sending_message(node->current_msg);// while()?
+              node->pdo[i]->cond.flag.new_msg = 0;
+              
+           };
+       };
    }; 
    
 };
