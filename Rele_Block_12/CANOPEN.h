@@ -114,8 +114,8 @@ struct data_object{
 struct OD_object{
     
     uint16_t index;
-    void* data;
-    void (*func_data)(struct data_object *obj);
+    void*     data;
+    void* func_data;
     
 };
 
@@ -170,15 +170,7 @@ union cond {
     
 };
 
-struct func_pdo{
-    
-    void        (*process_map)(struct PDO_object*);
-    void        (*process_rxpdo)(struct PDO_object *pdo);
-    void        (*process_txpdo)(struct PDO_object *pdo);
-    void        (*start_Inhibit_timer)(struct PDO_object *pdo);
-    void        (*start_event_timer)(struct PDO_object *pdo);
-    
-};
+
 
 
 
@@ -212,6 +204,19 @@ struct PDO_object{
     uint8_t      data[MAX_MAP_DATA];
     
 };  
+
+struct func_pdo{
+    
+    void   (*init_xpdo)(struct PDO_object* pdo);
+    void   (*process_map)(struct PDO_object* pdo);
+    void   (*process_rxpdo)(struct PDO_object *pdo);
+    void   (*process_txpdo)(struct PDO_object *pdo);
+    void   (*start_Inhibit_timer)(struct PDO_object *pdo);
+    void   (*start_event_timer)(struct PDO_object *pdo);
+    
+};
+
+
 
 struct SDO_object{
 	
@@ -294,7 +299,7 @@ typedef union {
             uint8_t      : 1;
             uint8_t  lock: 1;                                
                  }      bit_id;        
-              }  cob_id;	   
+              }  cob;	   
         uint8_t  dlc;	  
         uint8_t data0; 
         uint8_t data1;
@@ -527,6 +532,7 @@ void process_the_TxPDO_message(struct PDO_object* pdo){
 void process_the_PDO_message(struct PDO_object* pdo){
     
     if(pdo->cond.flag.rx_tx){
+        
         pdo->func->process_txpdo(pdo);
    }else 
         pdo->func->process_rxpdo(pdo);
@@ -544,35 +550,47 @@ inline void copy_xPDO(uint8_t* wdata,uint8_t* rdata,uint8_t dlc){
 void copy_rxPDO_message_to_array(CanOpen_msg* msg,struct PDO_object* pdo){
     
     if(msg->can_frame.dlc < pdo->n_byte_pdo_map) return;
-    copy_xPDO (pdo->data,&msg->frame_pdo->data0,msg->frame_pdo->dlc);
+    copy_xPDO (pdo->data,&msg->frame_pdo.data0,pdo->n_byte_pdo_map); //or 8?
     pdo->cond.flag.new_msg = 1; // new message
     
 };
 
 void copy_txPDO_array_to_message(CanOpen_msg* msg,struct PDO_object* pdo){
     
-    copy_xPDO (&msg->frame_pdo->data0,pdo->data,msg->frame_pdo->dlc);
+    copy_xPDO (&msg->frame_pdo.data0,pdo->data,msg->frame_pdo.dlc);// or 8?
     
 };
 
 void init_xPDO(struct PDO_object* pdo){
-
+    
+    if(!pdo)return;
+    
+    if(pdo->cob_id&PDO_DISABLED){ pdo->cond.flag.lock = 1; return;}
+    pdo->cond.flag.lock = 0;
+    
     map_object_check(pdo);
     
+    if(pdo->Transmission_type > 0xFE){ pdo->cond.flag.sync =0;return;}
     
+    if(pdo->Inhibit_time){
+        pdo->cond.flag.pause_send = 0;
+        pdo->func->start_Inhibit_timer(pdo);}
     
-
+    if(pdo->Event_timer){
+        pdo->cond.flag.timer_event =0;
+        pdo->func->start_event_timer(pdo);}
+    
 };
-
-
 
 
 
 void pdo_object_type(struct PDO_object *pdo){
     
     if(!pdo)return;
+    
     if(pdo->cond.flag.lock) return;
-
+    if(pdo->cond.flag.init_pdo)pdo->func->init_xpdo(pdo);
+    
     switch(pdo->Transmission_type){
  
 /*PDO transmission is sent if the PDO data was changed by at least 1 bit.
@@ -659,7 +677,8 @@ void pdo_object_type(struct PDO_object *pdo){
             
         break;  
         
-    //1 -240 sent cyclically on SYNC    
+    //1 -240 sent cyclically on SYNC 
+        
         default:
             
             if(pdo->Transmission_type > 0xF0) break;
@@ -758,7 +777,7 @@ uint8_t check_sdo_command_for_reading(CanOpen_msg *msg,uint8_t nbit){
 #define MAP_rxpdo_request 2
 #define MAP_info          3
 
-void single_object(struct data_object *obj){
+ void single_object(struct data_object *obj){
    
     uint8_t  nbit,*wdata,*rdata;
     CanOpen_msg* msg;
@@ -967,7 +986,7 @@ void rw_array_3byte(struct data_object *obj){
 
 /* 4 byte object*/
 void ro_object_4byte(struct data_object *obj){
-     OBJ_ATTR(0x20,RO,UINT32,OD_VAR) single_object(obj);}
+            OBJ_ATTR(0x20,RO,UINT32,OD_VAR); single_object(obj);}
 void rw_object_4byte(struct data_object *obj){
      OBJ_ATTR(0x20,RW,UINT32,OD_VAR) single_object(obj);}
 void ro_array_4byte(struct data_object *obj){
@@ -1148,12 +1167,14 @@ void map_object(struct data_object *obj){
          if(!error){
             if(pdo->cond.flag.lock){  
               switch(msg->frame_sdo.subindex){
+                  
               case 0:
                  if(msg->frame_sdo.cmd != GET_1b){error = ERROR_SDO_SERVER;break;}              
                  pdo->pdo_map->sub_index = msg->frame_sdo.data.data8<=MAX_MAP_DATA?
                  msg->frame_sdo.data.data8:MAX_MAP_DATA;
                  map_object_check(pdo); //test->map
                  break;
+                 
               default: 
                  if(msg->frame_sdo.dlc < 8){error = ERROR_SMALL_DATA_OBJ;break;};
                  if(msg->frame_sdo.cmd != GET_4b){error = ERROR_SDO_SERVER; break;}
@@ -1310,7 +1331,7 @@ void rxPDO_message_processing(uint8_t code,struct xCanOpen *node){
     
 void rxSDO_message_processing(uint8_t code,struct xCanOpen* node){// client -> server 
     
-    void (*object_call)(struct data_object *);;
+    void (*object_call)(struct data_object *);
     struct SDO_object* sdo = node->sdo[code];
     struct OD_object*  tab;
     
@@ -1391,7 +1412,7 @@ void Processing_pdo_objects(struct xCanOpen* node){
            // tx?
            if(node->pdo[i]->cond.flag.rx_tx && node->pdo[i]->cond.flag.new_msg){
                
-              node->current_msg->frame_pdo.cob_id = node->pdo[i]->cob_id; 
+              node->current_msg->frame_pdo.cob.id = node->pdo[i]->cob_id; 
               node->current_msg->frame_pdo.dlc = node->pdo[i]->n_byte_pdo_map;
               node->current_msg->frame_pdo.idType = dSTANDARD_CAN_MSG_ID_2_0B;
               copy_txPDO_array_to_message(node->current_msg,node->pdo[i]);
