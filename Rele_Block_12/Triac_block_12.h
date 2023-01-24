@@ -7,26 +7,28 @@
 #ifndef TRIAC_BLOCK_12_H
 #define	TRIAC_BLOCK_12_H
 
+#include "CANOPEN.h"
+
+
 #ifdef	__cplusplus
 extern "C" {
 #endif
  
  /* DS-401*/   
     
-uint16_t        
+uint16_t    
+        
 gpio_output = 0,       //6300h
 gpio_output_old = 0,
 gpio_polary_output = 0,//6302h
 gpio_mask_output   = 0;//6308h
 
-uint8_t   
+uint8_t
+        
 gpio_input = 0,         //6000h
 gpio_polary_input = 0,  //6002h
 gpio_mask_input   = 0;  //6003h  
     
- 
-
-
     
 const 
 uint32_t
@@ -38,22 +40,62 @@ uint32_t
  N1009_Hardware_version = 0,
  N100A_Software_version = 0;
 
+// ERROR
 
-const
-uint8_t 
+uint8_t  N1001_Error_register = 0;   
+uint32_t data_error[5];
+struct 
+one_type_array N1003_Error = { .sub_index = 5,
+                               .array = data_error };
 
- N1001_Error_register = 0;
+ 
+
+struct OD_object OD_Triac_rele[2]={
+
+    {.index = 0x1000, .data = &N1000_Device_Type, .func_data = ro_object_4byte},
+
+};
+
+
+// rxPDO1
+
+struct PDO_mapping map_rxpdo1={
+
+    .sub_index = 1,
     
     
-uint32_t data_error[5];  
-struct one_type_array N1003_Error = {
-.sub_index = 5,
-.array = data_error,
-};   
+
+
+};
+
+struct PDO_object rx_pdo1={
+
+    .cond = 0,
+    .Transmission_type = 0xFF,
+    .cob_id = 0x200,
+    .sub_index = 5,
+    .pdo_map = &map_rxpdo1,
+
+};
+
+struct PDO_object tx_pdo1={
+
+
+};
+
+struct SDO_object sdo_rx_tx;   
     
     
-    
-    
+struct xCanOpen Triac_rele = {
+.pdo = {
+        &rx_pdo1,// 180 + cob_id
+        &tx_pdo1,// 200 + cob_id
+        },
+       
+.sdo = {&sdo_rx_tx},
+};    
+ 
+     
     
     
     
@@ -214,19 +256,7 @@ void irq_default(void){};
 
 /* structure triac_block*/
 
-struct OD_object map[]={
-};
-  
-struct PDO_object 
 
-rx_pdo1,tx_pdo1,
-rx_pdo2,tx_pdo2,
-rx_pdo3,tx_pdo3,
-rx_pdo4,tx_pdo4;
-
-struct SDO_object 
-
-sdo_rx_tx;
 
  /*
 struct xCanOpen{
@@ -248,22 +278,7 @@ uint8_t Sync_object [MAX_SYNC_OBJECT];
 void  (*func_call[n_FUNC_COMMAND])(uint8_t ,void*);
 
 };*/
-struct xCanOpen Triac_rele = {
-.pdo = {
-        &rx_pdo1,// 180 + cob_id
-        &tx_pdo1,// 200 + cob_id
-        &rx_pdo2,
-        &tx_pdo2,
-        &rx_pdo3,
-        &tx_pdo3,
-        &rx_pdo4,
-        &tx_pdo4,
-       },
-       
-.sdo = {&sdo_rx_tx},
-};    
- 
- 
+
  
  
  
