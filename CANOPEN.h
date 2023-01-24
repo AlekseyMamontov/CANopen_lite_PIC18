@@ -114,8 +114,8 @@ struct data_object{
 struct OD_object{
     
     uint16_t index;
-    void* data;
-    void (*func_data)(struct data_object *obj);
+    void*     data;
+    void* func_data;
     
 };
 
@@ -587,8 +587,10 @@ void init_xPDO(struct PDO_object* pdo){
 void pdo_object_type(struct PDO_object *pdo){
     
     if(!pdo)return;
+    
     if(pdo->cond.flag.lock) return;
-
+    if(pdo->cond.flag.init_pdo)pdo->func->init_xpdo(pdo);
+    
     switch(pdo->Transmission_type){
  
 /*PDO transmission is sent if the PDO data was changed by at least 1 bit.
@@ -775,7 +777,7 @@ uint8_t check_sdo_command_for_reading(CanOpen_msg *msg,uint8_t nbit){
 #define MAP_rxpdo_request 2
 #define MAP_info          3
 
-void single_object(struct data_object *obj){
+ void single_object(struct data_object *obj){
    
     uint8_t  nbit,*wdata,*rdata;
     CanOpen_msg* msg;
@@ -984,7 +986,7 @@ void rw_array_3byte(struct data_object *obj){
 
 /* 4 byte object*/
 void ro_object_4byte(struct data_object *obj){
-     OBJ_ATTR(0x20,RO,UINT32,OD_VAR) single_object(obj);}
+            OBJ_ATTR(0x20,RO,UINT32,OD_VAR); single_object(obj);}
 void rw_object_4byte(struct data_object *obj){
      OBJ_ATTR(0x20,RW,UINT32,OD_VAR) single_object(obj);}
 void ro_array_4byte(struct data_object *obj){
@@ -1165,12 +1167,14 @@ void map_object(struct data_object *obj){
          if(!error){
             if(pdo->cond.flag.lock){  
               switch(msg->frame_sdo.subindex){
+                  
               case 0:
                  if(msg->frame_sdo.cmd != GET_1b){error = ERROR_SDO_SERVER;break;}              
                  pdo->pdo_map->sub_index = msg->frame_sdo.data.data8<=MAX_MAP_DATA?
                  msg->frame_sdo.data.data8:MAX_MAP_DATA;
                  map_object_check(pdo); //test->map
                  break;
+                 
               default: 
                  if(msg->frame_sdo.dlc < 8){error = ERROR_SMALL_DATA_OBJ;break;};
                  if(msg->frame_sdo.cmd != GET_4b){error = ERROR_SDO_SERVER; break;}
@@ -1327,7 +1331,7 @@ void rxPDO_message_processing(uint8_t code,struct xCanOpen *node){
     
 void rxSDO_message_processing(uint8_t code,struct xCanOpen* node){// client -> server 
     
-    void (*object_call)(struct data_object *);;
+    void (*object_call)(struct data_object *);
     struct SDO_object* sdo = node->sdo[code];
     struct OD_object*  tab;
     
