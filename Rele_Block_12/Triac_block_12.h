@@ -52,8 +52,8 @@ one_type_array N1003_Error = { .sub_index = 5,
 
 struct OD_object OD_Triac_rele[2]={
 
-    {.index = 0x1000, .data = &N1000_Device_Type, .func_data = ro_object_4byte},
-
+    //{.index. .data, .func_data },
+    {0x1000,&N1000_Device_Type,ro_object_4byte},
 };
 
 
@@ -77,6 +77,21 @@ struct PDO_object rx_pdo1={
     .pdo_map = &map_rxpdo1,
 
 };
+
+
+struct func_pdo func_rele={
+    
+    .init_xpdo = init_xPDO,
+    .process_map = map_object_check,
+    .process_rxpdo = process_the_RxPDO_message,
+    .process_txpdo = process_the_TxPDO_message,
+    .start_Inhibit_timer=0,
+    .start_event_timer=0,
+    
+};
+
+
+
 
 struct PDO_object tx_pdo1={
 

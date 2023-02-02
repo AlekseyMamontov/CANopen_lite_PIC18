@@ -101,13 +101,13 @@ struct map_info{
 	
 struct data_object{
     
-    void* data_object;
-    void* rw_object;
-    uint8_t request_type;
-    uint8_t attribute;
-    uint8_t nbit;
-    uint8_t sub_index;
-    uint32_t sub_index_ff;
+    void*       data_object;
+    void*       rw_object;
+    uint8_t     request_type;
+    uint8_t     attribute;
+    uint8_t     nbit;
+    uint8_t     sub_index;
+    uint32_t    sub_index_ff;
     
 };
 
@@ -582,6 +582,17 @@ void init_xPDO(struct PDO_object* pdo){
     
 };
 
+
+struct func_pdo func_default={
+    
+    .init_xpdo = init_xPDO,
+    .process_map = map_object_check,
+    .process_rxpdo = process_the_RxPDO_message,
+    .process_txpdo = process_the_TxPDO_message,
+    .start_Inhibit_timer=0,
+    .start_event_timer=0,
+    
+};
 
 
 void pdo_object_type(struct PDO_object *pdo){
@@ -1349,7 +1360,7 @@ void rxSDO_message_processing(uint8_t code,struct xCanOpen* node){// client -> s
     
     object_call(&info);
     
-    node->current_msg->frame_sdo.id = sdo->cob_id_server;
+    node->current_msg->frame_sdo.id = sdo->cob_id_client;
     node->sending_message(node->current_msg); // server -> client
     
 };    
