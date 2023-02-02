@@ -115,7 +115,7 @@ struct OD_object{
     
     uint16_t index;
     void*     data;
-    void* func_data;
+    void (*data_func)(struct data_object*);
     
 };
 
@@ -1192,17 +1192,17 @@ void map_object(struct data_object *obj){
                  if(!(msg->frame_sdo.data.map.nbit)){error = ERROR_SMALL_DATA_OBJ;break;}
           
                    struct OD_object *tab; 
-                   void (*object_call)(struct data_object *obj);
+                   //void (*object_call)(struct data_object *obj);
                         
                    tab = OD_search_map_index(msg,pdo->pdo_map->node_map);
-                   if(!tab || !tab->func_data || !tab->data){
+                   if(!tab || !tab->data_func || !tab->data){
                                             error = ERROR_NO_OBJECT;break;}                       
                    struct data_object  info;
                    info.sub_index = msg->frame_sdo.data.map.sub_index;
                    info.data_object = tab->data;
                    info.request_type = MAP_info;
-                   object_call = tab->func_data;
-                   object_call (&info);
+                   tab->data_func(&info);
+                   
                    if(info.rw_object == NULL){error = ERROR_SUB_INDEX;break;}
                    if(!(info.attribute&NO_MAP)){ error = ERROR_OBJECT_PDO;break;}
                    
@@ -1342,7 +1342,6 @@ void rxPDO_message_processing(uint8_t code,struct xCanOpen *node){
     
 void rxSDO_message_processing(uint8_t code,struct xCanOpen* node){// client -> server 
     
-    void (*object_call)(struct data_object *);
     struct SDO_object* sdo = node->sdo[code];
     struct OD_object*  tab;
     
@@ -1351,15 +1350,13 @@ void rxSDO_message_processing(uint8_t code,struct xCanOpen* node){// client -> s
     if(node->current_msg->frame_sdo.id != sdo->cob_id_server) return;
     
     tab =  OD_search_msg_index(node->current_msg,node->map);
-    if(!tab || !(tab->func_data) || !(tab->data)) return;
+    if(!tab || !(tab->data_func) || !(tab->data)) return;
     
     struct data_object info;
     info.request_type = SDO_request;
     info.data_object = tab->data;
-    object_call = tab->func_data;
-    
-    object_call(&info);
-    
+    tab->data_func(&info);
+       
     node->current_msg->frame_sdo.id = sdo->cob_id_client;
     node->sending_message(node->current_msg); // server -> client
     
