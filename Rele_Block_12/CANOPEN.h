@@ -1045,7 +1045,7 @@ void pdo_object(struct data_object *obj){
           if(obj->attribute&WO){
           error = 0;      
           if(msg->frame_sdo.dlc < 5) error = ERROR_SMALL_DATA_OBJ;
-          if(!pdo) error = ERROR_SYSTEM;
+          if(!pdo || pdo->pdo_map) error = ERROR_SYSTEM;
           if(!error){      
             uint8_t lock = pdo->cob_id&PDO_DISABLED?1:0;
             switch(msg->frame_sdo.subindex){
@@ -1059,11 +1059,33 @@ void pdo_object(struct data_object *obj){
                 
               if(msg->frame_sdo.cmd != GET_4b){error = ERROR_SDO_SERVER;break;}  
               if(msg->frame_sdo.dlc < 8){error = ERROR_SMALL_DATA_OBJ;break;}
-              if(!pdo->cond.flag.lock){error = ERROR_NO_SAVE;break;}
-                      // do the right processing!!! 
-                 pdo->cob_id = msg->frame_sdo.data.data32&0x800007FF;
-                 pdo->cond.flag.lock = pdo->cob_id&PDO_DISABLED?1:0;
-                 if(!pdo->cond.flag.lock)pdo->cond.flag.init_pdo = 1;
+              
+             
+              if(pdo->cond.flag.lock){ // lock == 1?
+                  
+                  if(pdo->cond.flag.rx_tx){
+                      
+                     pdo->cob_id = msg->frame_sdo.data.data32&0x800007FF;
+                     
+                 }else{
+                      
+                    if((pdo->cob_id&0x7ff)==(msg->frame_sdo.data.data32&0x7FF)){ 
+                     pdo->cob_id = msg->frame_sdo.data.data32&0x800007FF;
+                    }else{error = ERROR_NO_SAVE;break;}
+                    
+                 };
+                  
+              }else{ // lock == 0 ? 
+              
+                  if((pdo->cob_id&0x7ff)==(msg->frame_sdo.data.data32&0x7FF)){
+                     pdo->cob_id = msg->frame_sdo.data.data32&0x800007FF;
+                 }else{error = ERROR_NO_SAVE;break;};
+              
+              };
+              
+              pdo->cob_id |= pdo->pdo_map->sub_index == 0?PDO_DISABLED:0;
+              pdo->cond.flag.lock = pdo->cob_id&PDO_DISABLED?1:0;
+              if(!pdo->cond.flag.lock)pdo->cond.flag.init_pdo = 1;
         
                break;
                
@@ -1191,12 +1213,11 @@ void map_object(struct data_object *obj){
                  if(msg->frame_sdo.cmd != GET_4b){error = ERROR_SDO_SERVER; break;}
                  if(!(msg->frame_sdo.data.map.nbit)){error = ERROR_SMALL_DATA_OBJ;break;}
           
-                   struct OD_object *tab; 
-                   //void (*object_call)(struct data_object *obj);
-                        
+                   struct OD_object *tab;     
                    tab = OD_search_map_index(msg,pdo->pdo_map->node_map);
                    if(!tab || !tab->data_func || !tab->data){
-                                            error = ERROR_NO_OBJECT;break;}                       
+                                            error = ERROR_NO_OBJECT;break;}
+                   
                    struct data_object  info;
                    info.sub_index = msg->frame_sdo.data.map.sub_index;
                    info.data_object = tab->data;
@@ -1205,13 +1226,7 @@ void map_object(struct data_object *obj){
                    
                    if(info.rw_object == NULL){error = ERROR_SUB_INDEX;break;}
                    if(!(info.attribute&NO_MAP)){ error = ERROR_OBJECT_PDO;break;}
-                   
-                   /*
-                    if(pdo->cob_id&PDO_is_TX){
-                       if(!(info.access&RO)){error = ERROR_OBJECT_PDO;break;} 
-                    }else if(!(info.access&WO)){error = ERROR_OBJECT_PDO;break;}
-                   */
-                   
+                     
                    if(pdo->cond.flag.rx_tx){ //tx = 1
                         if(!(info.attribute&RO)){error = ERROR_OBJECT_PDO;break;}
                   }else if(!(info.attribute&WO)){error = ERROR_OBJECT_PDO;break;}
@@ -1223,9 +1238,12 @@ void map_object(struct data_object *obj){
                    pdo->pdo_map->quick_mapping[(msg->frame_sdo.subindex)-1] = 
                            info.rw_object;
                    
-                   map_object_check(pdo); //test mapping object
+                   map_object_check(pdo); 
+                   
+                   SDO_SAVE_OK
                    
                 break;}  
+              
         }else{error = ERROR_NO_SAVE;};
       }  
    }}
