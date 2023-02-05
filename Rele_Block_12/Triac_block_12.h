@@ -16,14 +16,13 @@ extern "C" {
  
  /* DS-401*/   
     
-uint16_t    
+uint8_t    
+// 0 - port B, 1 - port C
+output_port[2]    ={0,0},      //6200h
+output_port_old[2]={0,0},
+polary_output[2]  ={0,0},      //6202h
+mask_output[2]    ={0xFF,0xFF},//6208h
         
-gpio_output = 0,       //6300h
-gpio_output_old = 0,
-gpio_polary_output = 0,//6302h
-gpio_mask_output   = 0;//6308h
-
-uint8_t
         
 gpio_input = 0,         //6000h
 gpio_polary_input = 0,  //6002h
@@ -264,7 +263,18 @@ void irq_default(void){};
 }
 
 
- void GPIO_processing(){};
+ void GPIO_processing(){
+ 
+     uint8_t data,data_old;
+     if(output_port[0] != output_port_old[0]){
+         data_old = output_port_old[0]&(~mask_output[0]);
+         data = output_port[0]^polary_output[0];
+         data &=mask_output[0];
+         data |=data_old;
+     };
+
+ 
+ };
  
  
  
@@ -273,26 +283,6 @@ void irq_default(void){};
 
 
 
- /*
-struct xCanOpen{
-
-uint8_t              cob_id; 
-uint8_t                mode; 
-
-CanOpen_msg*    current_msg;
-
-uint8_t  (*receiving_message)(CanOpen_msg *msg);
-uint8_t  (*sending_message)(CanOpen_msg *msg);
-
-struct OD_object*   map; 
-struct PDO_object*  pdo[8];
-struct SDO_object*  sdo[2];
-
-uint8_t Sync_object [MAX_SYNC_OBJECT];
-
-void  (*func_call[n_FUNC_COMMAND])(uint8_t ,void*);
-
-};*/
 
  
  
