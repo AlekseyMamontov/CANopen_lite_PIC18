@@ -126,18 +126,26 @@ struct one_type_array{
     
 };
 
-struct arr_object{
+struct record_arr_object{
     
     uint8_t  sub_index;
-    uint8_t* nbit;
-    void*    array;
+    uint8_t* nbit;    //arr[subindex] = {0x08,0x20....0x10};
+    void*    array[]; //arr[subindex];*uint8,*uint?_t .....
     
-};    
+};  
+
+struct string_object{
     
+    uint8_t*    text;
+    uint8_t*    text_buffer;
+    uint8_t     n_byte;; 
+    uint8_t     cond_sdo;   
+};
+
 union map_data{
     
     struct map_info info;
-	uint32_t        data32;
+    uint32_t        data32;
     
 };
 
@@ -220,11 +228,11 @@ struct func_pdo{
 
 struct SDO_object{
 	
-    uint8_t		sub_index;
+   
     uint32_t	cob_id_client;
     uint32_t	cob_id_server;
     uint8_t		node_id;
-
+    uint8_t		sub_index;
 };
 
 union cob_id{
@@ -1153,8 +1161,11 @@ void pdo_object(struct data_object *obj){
 };
 
 
-void ro_pdo_object_(struct data_object *obj){obj->attribute=RO;pdo_object(obj);}
-void rw_pdo_object_(struct data_object *obj){obj->attribute=RW;pdo_object(obj);}
+void ro_pdo_object_(struct data_object *obj){
+     OBJ_ATTR(0x00,RO,PDO_COMM,OD_DEFSTRUCT);pdo_object(obj);}
+
+void rw_pdo_object_(struct data_object *obj){
+     OBJ_ATTR(0x00,RW,PDO_COMM,OD_DEFSTRUCT);pdo_object(obj);}
 
 
 /*------------------------- pdo_map object ------------------------------*/
@@ -1268,8 +1279,10 @@ void map_object(struct data_object *obj){
      break;};
 }
 
-void ro_map_object_(struct data_object *obj){obj->attribute=RO;pdo_object(obj);}
-void rw_map_object_(struct data_object *obj){obj->attribute=RW;pdo_object(obj);}
+void ro_map_object_(struct data_object *obj){
+    OBJ_ATTR(0x00,RO,PDO_MAPPING,OD_DEFSTRUCT);pdo_object(obj);}
+void rw_map_object_(struct data_object *obj){
+    OBJ_ATTR(0x00,RW,PDO_MAPPING,OD_DEFSTRUCT);pdo_object(obj);}
 
 
 /* ------------------ STRUCT CAN NODE ------------------*/
