@@ -126,18 +126,26 @@ struct one_type_array{
     
 };
 
-struct arr_object{
+struct record_arr_object{
     
     uint8_t  sub_index;
-    uint8_t* nbit;
-    void*    array;
+    uint8_t* nbit;    //arr[subindex] = {0x08,0x20....0x10};
+    void*    array[]; //arr[subindex];*uint8,*uint?_t .....
     
-};    
+};  
+
+struct string_object{
     
+    uint8_t*    text;
+    uint8_t*    text_buffer;
+    uint8_t     n_byte;; 
+    uint8_t     cond_sdo;   
+};
+
 union map_data{
     
     struct map_info info;
-	uint32_t        data32;
+    uint32_t        data32;
     
 };
 
@@ -220,11 +228,11 @@ struct func_pdo{
 
 struct SDO_object{
 	
-    uint8_t		sub_index;
+   
     uint32_t	cob_id_client;
     uint32_t	cob_id_server;
     uint8_t		node_id;
-
+    uint8_t		sub_index;
 };
 
 union cob_id{
