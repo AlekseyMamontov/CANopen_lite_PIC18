@@ -271,6 +271,9 @@ void irq_default(void){};
          data = output_port[0]^polary_output[0];
          data &=mask_output[0];
          data |=data_old;
+         LATB = data; 
+         output_port_old[0]=output_port[0];
+         
      };
 
  
