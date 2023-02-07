@@ -265,14 +265,15 @@ void irq_default(void){};
 
  void GPIO_processing(){
  
-     uint8_t data,data_old;
-     if(output_port[0] != output_port_old[0]){
-         data_old = output_port_old[0]&(~mask_output[0]);
-         data = output_port[0]^polary_output[0];
-         data &=mask_output[0];
-         data |=data_old;
+     uint8_t 
+     mask = mask_output[0],        
+     data = (output_port[0]^polary_output[0])&mask;
+     
+     
+     if(data != (LATB&mask)){
+        
+         data |=(LATB&(~mask_output[0]));
          LATB = data; 
-         output_port_old[0]=output_port[0];
          
      };
 
