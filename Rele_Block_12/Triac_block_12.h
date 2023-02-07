@@ -266,7 +266,7 @@ void irq_default(void){};
  void GPIO_processing(){
  
      uint8_t 
-     mask = mask_output[0],        
+     mask = mask_output[0], // rele 1-8       
      data = (output_port[0]^polary_output[0])&mask;
      
      
@@ -276,7 +276,7 @@ void irq_default(void){};
          LATB = data; 
          
      };
-     
+     //1-4 bit rele 9-12
      mask = mask_output[1]&0x0F;
      data = (output_port[1]^polary_output[1])&mask;
      
@@ -286,7 +286,6 @@ void irq_default(void){};
          LATC = data; 
          
      };
- 
  };
  
  
