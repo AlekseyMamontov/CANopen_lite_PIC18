@@ -272,11 +272,20 @@ void irq_default(void){};
      
      if(data != (LATB&mask)){
         
-         data |=(LATB&(~mask_output[0]));
+         data |=(LATB&(~mask));
          LATB = data; 
          
      };
-
+     
+     mask = mask_output[1]&0x0F;
+     data = (output_port[1]^polary_output[1])&mask;
+     
+    if(data != (LATC&mask)){
+        
+         data |=(LATC&(~mask));
+         LATC = data; 
+         
+     };
  
  };
  
