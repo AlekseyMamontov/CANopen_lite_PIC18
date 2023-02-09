@@ -7,6 +7,9 @@
 #ifndef CANOPEN_H
 #define	CANOPEN_H
 
+#include <stdint.h> 
+#include <stdio.h>
+
 	
 #define  txSDO  0x580
 #define  rxSDO  0x600
@@ -111,7 +114,7 @@ struct data_object{
     
 };
 
-struct OD_object{
+ struct OD_object{
     
     uint16_t index;
     void*     data;
@@ -144,9 +147,9 @@ struct string_object{
 
 union map_data{
     
-    struct map_info info;
     uint32_t        data32;
-    
+    struct map_info info;
+      
 };
 
 #define MAX_MAP_DATA 8
@@ -155,10 +158,12 @@ struct PDO_mapping {
     
     uint8_t           sub_index;
     union map_data    map[MAX_MAP_DATA];
-    // quick access to the map
-    void *            quick_mapping[MAX_MAP_DATA];
-    struct OD_object* node_map;
     
+    // quick access to the map
+    
+    struct OD_object* node_map;
+    void *            quick_mapping[MAX_MAP_DATA];
+  
 };
 
 union cond {
@@ -405,7 +410,6 @@ const uint32_t error_msg[]={
 
 /*---------- function  OD_TABLE  ------------*/
 
-void (*Object_call)(struct data_object *obj);
 
 /*index 0000 -  0xFFFF -> the end)*/
 
@@ -414,10 +418,10 @@ struct OD_object* OD_search_index(uint16_t index, struct OD_object* tab){
     return tab = tab->index == index?tab:NULL;};
 
 struct OD_object* OD_search_msg_index(CanOpen_msg *msg, struct OD_object* tab){
-return  OD_search_index((msg->frame_sdo.index),tab);}
+    return  OD_search_index((msg->frame_sdo.index),tab);}
 
 struct OD_object* OD_search_map_index(CanOpen_msg *msg, struct OD_object* tab){
-return  OD_search_index(msg->frame_sdo.data.map.index,tab);}
+    return  OD_search_index(msg->frame_sdo.data.map.index,tab);}
 
 
 void copy_data (uint8_t* wdata, uint8_t* rdata, uint8_t nbit){
@@ -796,7 +800,7 @@ uint8_t check_sdo_command_for_reading(CanOpen_msg *msg,uint8_t nbit){
 #define MAP_rxpdo_request 2
 #define MAP_info          3
 
- void single_object(struct data_object *obj){
+void single_object(struct data_object *obj){
    
     uint8_t  nbit,*wdata,*rdata;
     CanOpen_msg* msg;
@@ -996,7 +1000,7 @@ void rw_array_2byte(struct data_object *obj){
 /* 3 byte object*/
 void ro_object_3byte(struct data_object *obj){
      OBJ_ATTR(0x18,RO,UINT24,OD_VAR) single_object(obj);}
-void rw_object_3byte(struct data_object *obj){
+void  rw_object_3byte(struct data_object *obj){
      OBJ_ATTR(0x18,RW,UINT24,OD_VAR) single_object(obj);}
 void ro_array_3byte(struct data_object *obj){
      OBJ_ATTR(0x18,RO,UINT24,OD_ARRAY); one_type_array_object(obj);}
@@ -1005,7 +1009,7 @@ void rw_array_3byte(struct data_object *obj){
 
 /* 4 byte object*/
 void ro_object_4byte(struct data_object *obj){
-            OBJ_ATTR(0x20,RO,UINT32,OD_VAR); single_object(obj);}
+     OBJ_ATTR(0x20,RO,UINT32,OD_VAR); single_object(obj);}
 void rw_object_4byte(struct data_object *obj){
      OBJ_ATTR(0x20,RW,UINT32,OD_VAR) single_object(obj);}
 void ro_array_4byte(struct data_object *obj){
@@ -1233,7 +1237,7 @@ void map_object(struct data_object *obj){
                    info.sub_index = msg->frame_sdo.data.map.sub_index;
                    info.data_object = tab->data;
                    info.request_type = MAP_info;
-                   tab->data_func(&info);
+                  // tab->data_func(&info);
                    
                    if(info.rw_object == NULL){error = ERROR_SUB_INDEX;break;}
                    if(!(info.attribute&NO_MAP)){ error = ERROR_OBJECT_PDO;break;}
@@ -1386,7 +1390,7 @@ void rxSDO_message_processing(uint8_t code,struct xCanOpen* node){// client -> s
     struct data_object info;
     info.request_type = SDO_request;
     info.data_object = tab->data;
-    tab->data_func(&info);
+    //tab->data_func(&info);
        
     node->current_msg->frame_sdo.id = sdo->cob_id_client;
     node->sending_message(node->current_msg); // server -> client
@@ -1458,8 +1462,8 @@ void Processing_pdo_objects(struct xCanOpen* node){
               node->sending_message(node->current_msg);// while()?
               node->pdo[i]->cond.flag.new_msg = 0;
               
-           };
-       };
+           };          
+       } ///else break;
    }; 
    
 };

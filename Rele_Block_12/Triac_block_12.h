@@ -14,70 +14,130 @@
 extern "C" {
 #endif
  
- /* DS-401*/   
-    
-uint8_t    
-// 0 - port B, 1 - port C
-output_port[2]    ={0,0},      //6200h
-output_port_old[2]={0,0},
-polary_output[2]  ={0,0},      //6202h
-mask_output[2]    ={0xFF,0xFF},//6208h
-        
-        
-gpio_input = 0,         //6000h
-gpio_polary_input = 0,  //6002h
-gpio_mask_input   = 0;  //6003h  
+  
     
     
-const 
+
 uint32_t
 
- /* 401d (0x191) | 16th Bit Digital input | 17th Bit Digital output */
+/* 401d (0x191) | 16th Bit Digital input | 17th Bit Digital output */
 
  N1000_Device_Type = 30191,
  N1008_Device_name = 0,
- N1009_Hardware_version = 0,
- N100A_Software_version = 0;
+ N1009_Hard_version = 0,
+ N100A_Soft_version = 0;
 
-// ERROR
+
+
+
+
+ /* DS-401*/   
+    
+ uint8_t  
+        
+ // 0 - port B, 1 - port C
+        
+ output_port[2]    ={0x00,0x00},//6200h
+ polary_output[2]  ={0x00,0x00},//6202h
+ filter_output[2]  ={0xFF,0xFF},//6208h
+        
+ // AC220V portA.5 
+        
+ input_port[1]   = {0},  //6000h
+ polary_input[1] = {0},  //6002h
+ filter_input[1] = {0};  //6003h 
+
+
+ struct one_type_array
+ 
+ N6200_output = { .sub_index = 2, .array =output_port },
+ N6202_output = { .sub_index = 2, .array =polary_output},
+ N6208_output = { .sub_index = 2, .array =filter_output},
+         
+ N6000_input = { .sub_index = 1, .array = input_port},
+ N6002_input = { .sub_index = 1, .array = polary_input},
+ N6003_input = { .sub_index = 1, .array = filter_input};        
+         
+
+// Error
 
 uint8_t  N1001_Error_register = 0;   
 uint32_t data_error[5];
 struct 
-one_type_array N1003_Error = { .sub_index = 5,
-                               .array = data_error };
+one_type_array N1003_Error = { .sub_index = 5, .array = data_error };
+
+
+
+// OD_table
+static struct OD_object OD_Triac_rele[15]={
+
+    {0x1000,(void*)&N1000_Device_Type, ro_object_4byte},
+    {0x1001,(void*)&N1001_Error_register,ro_object_1byte},
+    {0x1003,(void*)&N1003_Error,        ro_array_4byte},
+    {0x1008,(void*)&N1008_Device_name,  ro_object_4byte},
+    {0x1009,(void*)&N1009_Hard_version, ro_object_4byte},
+    {0x100A,(void*)&N100A_Soft_version, ro_object_4byte},
+   
+    {0x6000,(void*)&N6000_input,ro_array_1byte},
+    {0x6002,(void*)&N6002_input,rw_array_1byte},
+    {0x6003,(void*)&N6003_input,rw_array_1byte},    
+      
+    {0x6200,(void*)&N6200_output,rw_array_1byte},
+    {0x6202,(void*)&N6202_output,rw_array_1byte},
+    {0x6208,(void*)&N6208_output,rw_array_1byte},
+
+    {0xffff,NULL,NULL},
+        
+};
 
  
 
-struct OD_object OD_Triac_rele[2]={
 
-    //{.index. .data, .func_data },
-    {0x1000,&N1000_Device_Type,ro_object_4byte},
-};
-
-
-// rxPDO1
-
-struct PDO_mapping map_rxpdo1={
-
-    .sub_index = 1,
+/******************* PDO objects ***************
+ struct PDO_object{
     
+    union cond  cond;
     
-
-
+    // visible block
+    
+    uint8_t		sub_index ;
+    uint8_t		Transmission_type;
+    uint8_t     Sync_start_value;
+    
+    uint32_t	cob_id ;
+    
+    uint16_t	Inhibit_time; 	
+    uint16_t	Event_timer;
+    
+    // quick access to the structure map
+    
+    struct PDO_mapping* pdo_map;
+    
+    uint8_t     n_byte_pdo_map; // == msg->dlc? map_object_check()
+    uint8_t     counter_sync;
+    
+    // function
+    struct func_pdo  *func;
+  //void *       node_parent;
+    
+    // Buffer 
+    uint8_t      data[MAX_MAP_DATA];
+    
+};  
+ 
+ struct PDO_mapping {
+    
+    uint8_t           sub_index;
+    union map_data    map[MAX_MAP_DATA];
+    // quick access to the map
+    void *            quick_mapping[MAX_MAP_DATA];
+    struct OD_object* node_map;
+    
 };
-
-struct PDO_object rx_pdo1={
-
-    .cond = 0,
-    .Transmission_type = 0xFF,
-    .cob_id = 0x200,
-    .sub_index = 5,
-    .pdo_map = &map_rxpdo1,
-
-};
-
-
+ 
+ 
+ 
+ **/ 
 struct func_pdo func_rele={
     
     .init_xpdo = init_xPDO,
@@ -88,40 +148,107 @@ struct func_pdo func_rele={
     .start_event_timer=0,
     
 };
+ 
+/******* rxPDO1  *********/
+
+struct PDO_mapping map_rxpdo1 = {
+
+    .sub_index = 2,
+    .map = {{0x08010062},
+            {0x08020062},
+            {0x00000000},
+            },
+    .quick_mapping = {(void*)&output_port[0],
+                      (void*)&output_port[1],
+                      NULL},
+                      
+    .node_map = OD_Triac_rele,
+    
+};
 
 
+struct PDO_object rx_pdo1={
+
+    .cond = 0,
+    .Transmission_type = 0xFF,
+    .cob_id = rxPDO1,
+    .sub_index = 5,
+    .pdo_map = &map_rxpdo1,
+    .n_byte_pdo_map = 2,
+    .counter_sync = 0,
+    .func = &func_rele,
+    
+};
+
+
+/******* txPDO1  *********/
+
+struct PDO_mapping map_txpdo1 = {
+
+    .sub_index = 1,
+    
+    .map = {{0x08010060},
+            {0x00000000},
+            },
+    .quick_mapping = {(void*)&input_port[0],
+                      NULL},
+                      
+    .node_map = OD_Triac_rele,
+    
+};
 
 
 struct PDO_object tx_pdo1={
-
+    
+    .cond = 0,
+    .Transmission_type = 0xFF,
+    .cob_id = txPDO1,
+    .sub_index = 5,
+    .pdo_map = &map_rxpdo1,
+    .Event_timer = 0,
+    .Inhibit_time = 0,
+    .n_byte_pdo_map = 1,
+    .func = &func_rele,
+    .data = {0},
 
 };
 
-struct SDO_object sdo_rx_tx;   
+
+/******* SDO  *********/
+
+struct SDO_object sdo_Triac_rele={
+
+    .cob_id_client = rxSDO,
+    .cob_id_server = txSDO,
+    .node_id = 0,
+    .sub_index = 3,
     
+};   
     
+   
+//struct OD_object OD_Triac[2];
+
+
+
+static
 struct xCanOpen Triac_rele = {
+    
 .pdo = {
         &rx_pdo1,// 180 + cob_id
         &tx_pdo1,// 200 + cob_id
         },
        
-.sdo = {&sdo_rx_tx},
+.sdo = {&sdo_Triac_rele},
+
+.map = OD_Triac_rele,
+
 };    
  
      
+   
     
-    
-    
-    
-    
-    
-    
-    
-    
-/*    
- read  address (Node_ID) chip 74h165
-*/
+/****  work with GPIO    
+*****  read  address (Node_ID) chip 74h165 *******/
 
 uint8_t Read_addr_CAN(void){
    uint8_t addr = 0;
@@ -148,7 +275,58 @@ uint8_t Read_addr_CAN(void){
      return addr;
  };	
 
+ /*
+ output 
+ Rele 1-8  portB 0-7 
+ Rele 9-12 portC 0-3
+ StatusLEd portA.3
+   
+ input
+ AC220V portA.5 
+ 
+*/
+ 
+void GPIO_processing(){ 
+    
+     uint8_t 
+     mask = filter_output[0],       
+     data = (output_port[0]^polary_output[0])&mask;
+     
+     
+     if(data != (LATB&mask)){
+        
+         data |=(LATB&(~mask));
+         LATB = data; 
+         
+     };
+     
+     mask = filter_output[1]&0x0F;
+     data = (output_port[1]^polary_output[1])&mask;
+     
+    if(data != (LATC&mask)){
+        
+         data |=(LATC&(~mask));
+         LATC = data; 
+         
+     };
+     
+     data = AC220V_GetValue()?1:0;
+     data = (data^polary_input[0])&filter_input[0];
+     
+     if(data != input_port[0]){
+         
+         input_port[0]= data;
+         tx_pdo1.cond.flag.event_txpdo = 1;
+         
+     };    
+ }
+
+/******** irq *********************************/
+
 void irq_default(void){};
+
+
+/********   *modification can init ************/
 
  void CANOPEN_ECAN_Initialize(uint8_t id)
 {
@@ -262,49 +440,6 @@ void irq_default(void){};
 
 }
 
-
- void GPIO_processing(){
- 
-     uint8_t 
-     mask = mask_output[0], // rele 1-8       
-     data = (output_port[0]^polary_output[0])&mask;
-     
-     
-     if(data != (LATB&mask)){
-        
-         data |=(LATB&(~mask));
-         LATB = data; 
-         
-     };
-     //1-4 bit rele 9-12
-     mask = mask_output[1]&0x0F;
-     data = (output_port[1]^polary_output[1])&mask;
-     
-    if(data != (LATC&mask)){
-        
-         data |=(LATC&(~mask));
-         LATC = data; 
-         
-     };
- };
- 
- 
- 
-
-/* structure triac_block*/
-
-
-
-
- 
- 
- 
- 
- 
- 
- 
- 
- 
  
 #ifdef	__cplusplus
 }
