@@ -38,7 +38,8 @@ void main(void)
                 
     while(CAN_transmit(&msg) == 0){};
     
-    Triac_rele.mode = PRE_OPERATIONAL; 
+    Triac_rele.mode = PRE_OPERATIONAL;
+    
     
     while (1){
               
