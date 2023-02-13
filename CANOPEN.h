@@ -184,9 +184,6 @@ union cond {
 };
 
 
-
-
-
 struct PDO_object{
     
     union cond  cond;
@@ -211,7 +208,7 @@ struct PDO_object{
     
     // function
     struct func_pdo  *func;
-  //void *       node_parent;
+    //void *       node_parent;
     
     // Buffer 
     uint8_t      data[MAX_MAP_DATA];
@@ -228,7 +225,6 @@ struct func_pdo{
     void   (*start_event_timer)(struct PDO_object *pdo);
     
 };
-
 
 
 struct SDO_object{
@@ -1165,10 +1161,10 @@ void pdo_object(struct data_object *obj){
 };
 
 
-void ro_pdo_object_(struct data_object *obj){
+void ro_pdo_object(struct data_object *obj){
      OBJ_ATTR(0x00,RO,PDO_COMM,OD_DEFSTRUCT);pdo_object(obj);}
 
-void rw_pdo_object_(struct data_object *obj){
+void rw_pdo_object(struct data_object *obj){
      OBJ_ATTR(0x00,RW,PDO_COMM,OD_DEFSTRUCT);pdo_object(obj);}
 
 
@@ -1283,10 +1279,25 @@ void map_object(struct data_object *obj){
      break;};
 }
 
-void ro_map_object_(struct data_object *obj){
+void ro_map_object(struct data_object *obj){
     OBJ_ATTR(0x00,RO,PDO_MAPPING,OD_DEFSTRUCT);pdo_object(obj);}
-void rw_map_object_(struct data_object *obj){
+void rw_map_object(struct data_object *obj){
     OBJ_ATTR(0x00,RW,PDO_MAPPING,OD_DEFSTRUCT);pdo_object(obj);}
+
+/*------------------------- sdo_map object ------------------------------*/
+
+void sdo_object(struct data_object *obj){
+    
+    
+    
+    
+}
+void ro_sdo_object(struct data_object *obj){
+    OBJ_ATTR(0x00,RO,SDO_PARAMETER,OD_DEFSTRUCT);sdo_object(obj);}
+void rw_sdo_object(struct data_object *obj){
+    OBJ_ATTR(0x00,RW,SDO_PARAMETER,OD_DEFSTRUCT);sdo_object(obj);}
+
+
 
 
 /* ------------------ STRUCT CAN NODE ------------------*/
