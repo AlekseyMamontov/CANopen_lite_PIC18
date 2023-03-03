@@ -124,8 +124,7 @@ struct func_pdo func_rele={
     .process_map = map_object_check,
     .process_rxpdo = process_the_RxPDO_message,
     .process_txpdo = process_the_TxPDO_message,
-    .start_Inhibit_timer=0,
-    .start_event_timer=0,
+ 
     
 };
  
