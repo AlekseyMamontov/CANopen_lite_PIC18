@@ -28,9 +28,6 @@ uint32_t
  N100A_Soft_version = 0;
 
 
-
-
-
  /* DS-401*/   
     
  uint8_t  
@@ -68,29 +65,12 @@ one_type_array N1003_Error = { .sub_index = 5, .array = data_error };
 
 
 
+
+
+
 // OD_table
-static struct OD_object OD_Triac_rele[15]={
+static struct OD_object OD_Triac_rele[];
 
-    {0x1000,(void*)&N1000_Device_Type, ro_object_4byte},
-    {0x1001,(void*)&N1001_Error_register,ro_object_1byte},
-    {0x1003,(void*)&N1003_Error,        ro_array_4byte},
-    {0x1008,(void*)&N1008_Device_name,  ro_object_4byte},
-    {0x1009,(void*)&N1009_Hard_version, ro_object_4byte},
-    {0x100A,(void*)&N100A_Soft_version, ro_object_4byte},
-   
-    {0x6000,(void*)&N6000_input,ro_array_1byte},
-    {0x6002,(void*)&N6002_input,rw_array_1byte},
-    {0x6003,(void*)&N6003_input,rw_array_1byte},    
-      
-    {0x6200,(void*)&N6200_output,rw_array_1byte},
-    {0x6202,(void*)&N6202_output,rw_array_1byte},
-    {0x6208,(void*)&N6208_output,rw_array_1byte},
-
-    {0xffff,NULL,NULL},
-        
-};
-
- 
 
 
 /******************* PDO objects ***************
@@ -144,8 +124,7 @@ struct func_pdo func_rele={
     .process_map = map_object_check,
     .process_rxpdo = process_the_RxPDO_message,
     .process_txpdo = process_the_TxPDO_message,
-    .start_Inhibit_timer=0,
-    .start_event_timer=0,
+ 
     
 };
  
@@ -169,7 +148,7 @@ struct PDO_mapping map_rxpdo1 = {
 
 struct PDO_object rx_pdo1={
 
-    .cond = 0,
+    .cond ={.stat = 0x20}, // initPDO
     .Transmission_type = 0xFF,
     .cob_id = rxPDO1,
     .sub_index = 5,
@@ -177,7 +156,7 @@ struct PDO_object rx_pdo1={
     .n_byte_pdo_map = 2,
     .counter_sync = 0,
     .func = &func_rele,
-    
+    .data ={0},
 };
 
 
@@ -200,7 +179,7 @@ struct PDO_mapping map_txpdo1 = {
 
 struct PDO_object tx_pdo1={
     
-    .cond = 0,
+    .cond = {.stat = 0x20}, // initPDO
     .Transmission_type = 0xFF,
     .cob_id = txPDO1,
     .sub_index = 5,
@@ -234,8 +213,8 @@ static
 struct xCanOpen Triac_rele = {
     
 .pdo = {
-        &rx_pdo1,// 180 + cob_id
-        &tx_pdo1,// 200 + cob_id
+        &rx_pdo1,// 200 + cob_id
+        &tx_pdo1,// 180 + cob_id
         },
        
 .sdo = {&sdo_Triac_rele},
@@ -244,7 +223,36 @@ struct xCanOpen Triac_rele = {
 
 };    
  
-     
+
+// OD_table
+    static struct OD_object OD_Triac_rele[18]={
+
+    {0x1000,(void*)&N1000_Device_Type, ro_object_4byte},
+    {0x1001,(void*)&N1001_Error_register,ro_object_1byte},
+    {0x1003,(void*)&N1003_Error,        ro_array_4byte},
+    {0x1008,(void*)&N1008_Device_name,  ro_object_4byte},
+    {0x1009,(void*)&N1009_Hard_version, ro_object_4byte},
+    {0x100A,(void*)&N100A_Soft_version, ro_object_4byte},
+    
+    {0x1200,(void*)&sdo_Triac_rele,ro_sdo_object},
+    
+    {0x1400,(void*)&rx_pdo1, rw_pdo_object},
+    {0x1600,(void*)&rx_pdo1, rw_map_object},
+    
+    {0x1800,(void*)&tx_pdo1, rw_pdo_object},
+    {0x1A00,(void*)&tx_pdo1, ro_map_object},
+   
+    {0x6000,(void*)&N6000_input,ro_array_1byte},
+    {0x6002,(void*)&N6002_input,rw_array_1byte},
+    {0x6003,(void*)&N6003_input,rw_array_1byte},    
+      
+    {0x6200,(void*)&N6200_output,rw_array_1byte},
+    {0x6202,(void*)&N6202_output,rw_array_1byte},
+    {0x6208,(void*)&N6208_output,rw_array_1byte},
+
+    {0xffff,NULL,NULL},
+        
+};     
    
     
 /****  work with GPIO    
