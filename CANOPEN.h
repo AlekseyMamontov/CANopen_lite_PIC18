@@ -26,8 +26,6 @@
 
 
 
-
-
 // deftype	
 	
 #define boolean         0x01
@@ -169,15 +167,17 @@ struct PDO_mapping {
 union cond {
     
     struct{
-    uint8_t sync       : 1; // sync
-    uint8_t new_msg    : 1; // new message rxPDO
-    uint8_t timer_event: 1; // 1 - the timer has worked
-    uint8_t pause_send : 1; // 1 - pause is over
-    uint8_t event_txpdo: 1; // 1 - there is a change to send a message
-    uint8_t init_pdo   : 1; // 1 - xPDO init   
-    uint8_t rx_tx      : 1; // 0 - rxPDO object, 1 - txPDO
-    uint8_t lock       : 1; // 1 - Lock
-   }       flag; 
+	    
+    uint8_t sync        : 1; // sync
+    uint8_t new_msg     : 1; // new message rxPDO & new send txPDO
+    uint8_t inhibit_time: 1; // 0 - pause is over & 1 - set start pause(timer)
+    uint8_t event_timer : 1; // 0 - off event_timer & 1 - set start event_timer
+    uint8_t event_txpdo : 1; // 1 - there is a change to send a message
+    uint8_t init_pdo    : 1; // 1 - xPDO init   
+    uint8_t rx_tx       : 1; // 0 - rxPDO object, 1 - txPDO
+    uint8_t lock        : 1; // 1 - Lock
+    
+    }       flag; 
    
     uint8_t stat;
     
@@ -190,16 +190,19 @@ struct PDO_object{
     
     // visible block
     
-    uint8_t		sub_index ;
-    uint8_t		Transmission_type;
+    uint8_t	sub_index ;
+    uint8_t	Transmission_type;
     uint8_t     Sync_start_value;
     
     uint32_t	cob_id ;
     
-    uint16_t	Inhibit_time; 	
-    uint16_t	Event_timer;
+    uint16_t	Inhibit_time; 	// n x 100ms
+    uint16_t	Event_timer;	// n x 100ms
     
     // quick access to the structure map
+    
+    uint16_t    counter_Inhibit_time; // 0 <-- (Inhibit_time --)
+    uint16_t    counter_Event_timer;  // 0 <-- (Event_timer--)
     
     struct PDO_mapping* pdo_map;
     
@@ -221,8 +224,8 @@ struct func_pdo{
     void   (*process_map)(struct PDO_object* pdo);
     void   (*process_rxpdo)(struct PDO_object *pdo);
     void   (*process_txpdo)(struct PDO_object *pdo);
-    void   (*start_Inhibit_timer)(struct PDO_object *pdo);
-    void   (*start_event_timer)(struct PDO_object *pdo);
+    //void   (*start_Inhibit_timer)(struct PDO_object *pdo);
+    //void   (*start_event_timer)(struct PDO_object *pdo);
     
 };
 
@@ -347,6 +350,8 @@ struct xCanOpen{
     struct PDO_object*  pdo[MAX_PDO_OBJECT];
     struct SDO_object*  sdo[1];
 
+    uint16_t* timer100ms[MAX_PDO_OBJECT]; // !! -not quite right
+    uint8_t  n_obj_timer;
 };
 
 /* --------------- ERROR ----------------*/
@@ -517,7 +522,8 @@ void process_the_TxPDO_message(struct PDO_object* pdo){
         if(sum_nbit > MAX_MAP_NBIT) break;
         if(!(pdo->pdo_map->quick_mapping[index])) break;
         
-            switch(pdo->pdo_map->map[index].info.nbit){   
+            switch(pdo->pdo_map->map[index].info.nbit){  
+		    
                 case 0x08: *(data+addr) = 
                             *((uint8_t*)(pdo->pdo_map->quick_mapping[index]));
                             addr++;break;
@@ -580,13 +586,13 @@ void init_xPDO(struct PDO_object* pdo){
     
     if(pdo->Transmission_type > 0xFE){ pdo->cond.flag.sync =0;return;}
     
-    if(pdo->Inhibit_time){
-        pdo->cond.flag.pause_send = 0;
-        pdo->func->start_Inhibit_timer(pdo);}
+    if(pdo->Inhibit_time){	    
+	pdo->counter_Inhibit_time = pdo->Inhibit_time;    
+        pdo->cond.flag.inhibit_time = 1;}
     
-    if(pdo->Event_timer){
-        pdo->cond.flag.timer_event =0;
-        pdo->func->start_event_timer(pdo);}
+    if(pdo->Event_timer){    
+	pdo->counter_Event_timer = pdo->Event_timer;    
+        pdo->cond.flag.event_timer =1;}
     
 };
 
@@ -597,8 +603,8 @@ struct func_pdo func_default={
     .process_map = map_object_check,
     .process_rxpdo = process_the_RxPDO_message,
     .process_txpdo = process_the_TxPDO_message,
-    .start_Inhibit_timer=0,
-    .start_event_timer=0,
+ ///   .start_Inhibit_timer=0,
+ //   .start_event_timer=0,
     
 };
 
@@ -619,20 +625,29 @@ void pdo_object_type(struct PDO_object *pdo){
       
             if(pdo->cond.flag.rx_tx){
          //txpdo
-                pdo->cond.flag.new_msg = 0;
                 if(!pdo->cond.flag.event_txpdo)break;
-                if(!pdo->cond.flag.pause_send)break;
-                if(pdo->Event_timer && !pdo->cond.flag.timer_event)break;
+		
+                if(pdo->cond.flag.inhibit_time){
+			if(pdo->counter_Inhibit_time) break;
+			pdo->cond.flag.inhibit_time = 0;}
+		
+                if(pdo->cond.flag.event_timer){
+			if(pdo->counter_Event_timer) break;
+			pdo->cond.flag.event_timer = 0;}
                
                 if(pdo->func->process_txpdo)pdo->func->process_txpdo(pdo);
                 
                 pdo->cond.flag.event_txpdo=0;
-                pdo->cond.flag.pause_send = 0;
-                pdo->cond.flag.timer_event =0;
-                pdo->cond.flag.new_msg = 1;
                 
-                pdo->func->start_Inhibit_timer(pdo);
-                pdo->func->start_event_timer(pdo);
+		if(pdo->Inhibit_time){	    
+			pdo->counter_Inhibit_time = pdo->Inhibit_time;    
+			pdo->cond.flag.inhibit_time = 1;}
+    
+		if(pdo->Event_timer){    
+			pdo->counter_Event_timer = pdo->Event_timer;    
+			pdo->cond.flag.event_timer =1;}
+		
+                pdo->cond.flag.new_msg = 1;
                 
             }else{
          //rxpdo       
@@ -651,12 +666,16 @@ void pdo_object_type(struct PDO_object *pdo){
             
             if(pdo->cond.flag.rx_tx){
          //txpdo
-                pdo->cond.flag.new_msg = 0;
-                if(!pdo->cond.flag.pause_send)break;        
+                if(pdo->cond.flag.inhibit_time){
+			if(pdo->counter_Inhibit_time) break;
+			pdo->cond.flag.inhibit_time = 0;}
+		
                 if(pdo->func->process_txpdo)pdo->func->process_txpdo(pdo);
-                pdo->cond.flag.pause_send = 0;
-                //...start pause timer if inhibit_time !=0
-                pdo->func->start_Inhibit_timer(pdo);
+				
+		if(pdo->Inhibit_time){	    
+			pdo->counter_Inhibit_time = pdo->Inhibit_time;    
+			pdo->cond.flag.inhibit_time = 1;}
+	
                 pdo->cond.flag.new_msg = 1;
                 
             }else{
@@ -675,12 +694,13 @@ void pdo_object_type(struct PDO_object *pdo){
         case 0x00:
             
              if(pdo->cond.flag.rx_tx){
-         //txpdo 
-                pdo->cond.flag.new_msg = 0; 
+         //txpdo  
                 if(!pdo->cond.flag.sync)break;
                 if(!pdo->cond.flag.event_txpdo)break;
+		
                 if(pdo->func->process_txpdo)pdo->func->process_txpdo(pdo);
-                pdo->cond.flag.sync = 0;
+                
+		pdo->cond.flag.sync = 0;
                 pdo->cond.flag.event_txpdo = 0;
                 pdo->cond.flag.new_msg = 1;
                 
@@ -688,8 +708,10 @@ void pdo_object_type(struct PDO_object *pdo){
          //rxpdo
                 if(!pdo->cond.flag.sync)break; 
                 if(!pdo->cond.flag.new_msg)break; // +pdo->cond.flag.sync = 0;
+		
                 if(pdo->func->process_rxpdo)pdo->func->process_rxpdo(pdo);
-                pdo->cond.flag.new_msg = 0;
+                
+		pdo->cond.flag.new_msg = 0;
                 pdo->cond.flag.sync = 0;
                 
             }
@@ -704,19 +726,23 @@ void pdo_object_type(struct PDO_object *pdo){
             
             if(pdo->cond.flag.rx_tx){
                 
-                pdo->cond.flag.new_msg = 0;  //txpdo       
+                //txpdo       
                 if(!pdo->cond.flag.sync)break;
+		
                 if(pdo->func->process_txpdo)pdo->func->process_txpdo(pdo);
-                pdo->cond.flag.sync = 0;
+                
+		pdo->cond.flag.sync = 0;
                 pdo->counter_sync = pdo->Transmission_type;
                 pdo->cond.flag.new_msg = 1;
                 
             }else{
-                                            //rxpdo
+                //rxpdo
                 if(!pdo->cond.flag.sync)break; 
                 if(!pdo->cond.flag.new_msg)break;
+		
                 if(pdo->func->process_rxpdo)pdo->func->process_rxpdo(pdo);
-                pdo->cond.flag.new_msg = 0;
+                
+		pdo->cond.flag.new_msg = 0;
                 pdo->cond.flag.sync = 0;
                 pdo->counter_sync = pdo->Transmission_type;
                 
@@ -724,6 +750,34 @@ void pdo_object_type(struct PDO_object *pdo){
         break;         
     } 
 };
+
+//example
+#define MAX_OBJ_TIMER MAX_MAP_DATA+(MAX_MAP_DATA/2)+1
+
+uint16_t *pdo_timer[MAX_OBJ_TIMER];
+
+void timer100ms(uint16_t** counter){
+
+	while (*counter != NULL){
+	
+	   if((**counter)) (**counter)-- ;
+	   counter ++;
+	} 
+}
+
+void add_timer100ms(uint16_t *addr){
+
+	for(uint8_t i=0;i<MAX_OBJ_TIMER;i++){
+	
+		if(pdo_timer[i]==addr)break;
+		if(pdo_timer[i]==NULL) pdo_timer[i] = addr;
+	
+	};
+};
+
+
+
+
 
 
 
@@ -888,28 +942,28 @@ void one_type_array_object(struct data_object *obj){
                         case 0xFF:rdata = (uint8_t*)&(obj->sub_index_ff);
                                   nbit = 0x20; SDO_ANSWER_4b;break;         
                         default: if(array->sub_index < (msg->frame_sdo.subindex))
-											error = ERROR_SUB_INDEX;break;
-                                nbit = obj->nbit;
-								rdata = (uint8_t*)array->array;
-								rdata = rdata + ((nbit>>3)*((msg->frame_sdo.subindex)-1));
+		error = ERROR_SUB_INDEX;break;
+		nbit = obj->nbit;
+		rdata = (uint8_t*)array->array;
+		rdata = rdata + ((nbit>>3)*((msg->frame_sdo.subindex)-1));
                         break;}		
                  }
              }else error = ERROR_NO_READ;	
     //write    
             }else if((msg->frame_sdo.cmd&0xE0) == WRITE_REQUEST){
-				if(obj->attribute&WO){
-				error = check_sdo_command_for_writing(msg,obj->nbit);
-				if(!error){ 
-                    switch(msg->frame_sdo.subindex){
-                       case 0:error = ERROR_NO_SAVE;break;       
-                       case 0xFF:rdata = (uint8_t*)&(obj->sub_index_ff);
-                                 nbit = 0x20; SDO_ANSWER_4b;break;         
-                       default:if(array->sub_index < (msg->frame_sdo.subindex))
-												error = ERROR_SUB_INDEX;break;
-								rdata = wdata;
-								wdata = (uint8_t*)array->array;
-								wdata = wdata + ((nbit>>3)*((msg->frame_sdo.subindex)-1));		
-						;}      	
+	if(obj->attribute&WO){
+	    error = check_sdo_command_for_writing(msg,obj->nbit);
+	    if(!error){ 
+	      switch(msg->frame_sdo.subindex){
+                           case 0:error = ERROR_NO_SAVE;break;       
+                           case 0xFF:rdata = (uint8_t*)&(obj->sub_index_ff);
+		      nbit = 0x20; SDO_ANSWER_4b;break;         
+                           default:if(array->sub_index < (msg->frame_sdo.subindex))
+	                       error = ERROR_SUB_INDEX;break;
+		    rdata = wdata;
+		    wdata = (uint8_t*)array->array;
+		    wdata = wdata + ((nbit>>3)*((msg->frame_sdo.subindex)-1));		
+	    ;}      	
 				}
 			 }else error = ERROR_NO_SAVE;
 		  }          
@@ -954,16 +1008,16 @@ void one_type_array_object(struct data_object *obj){
             
         case MAP_info:
         
-			if(!obj->data_object){obj->rw_object= NULL;return;} 
-			switch(obj->sub_index){
-				 case 0: rdata = &array->sub_index;nbit = 0x08;obj->attribute = RO;break;
-				 case 0xFF : rdata = (uint8_t*)&(obj->sub_index_ff); nbit = 0x20;obj->attribute = RO;break;
-				 default: if(obj->sub_index > array->sub_index) rdata=NULL;nbit=0;break;
-						  rdata = (uint8_t*)array->array;
-						   nbit = obj->nbit;
-						  rdata = rdata?rdata + ((nbit>>3)*((obj->sub_index)-1)):NULL;
-			};
-			obj->rw_object = rdata;obj->nbit = nbit;return;
+	if(!obj->data_object){obj->rw_object= NULL;return;} 
+	      switch(obj->sub_index){
+	          case 0: rdata = &array->sub_index;nbit = 0x08;obj->attribute = RO;break;
+                            case 0xFF : rdata = (uint8_t*)&(obj->sub_index_ff); nbit = 0x20;obj->attribute = RO;break;
+	          default: if(obj->sub_index > array->sub_index) rdata=NULL;nbit=0;break;
+		       rdata = (uint8_t*)array->array;
+		       nbit = obj->nbit;
+		       rdata = rdata?rdata + ((nbit>>3)*((obj->sub_index)-1)):NULL;
+	     };
+	 obj->rw_object = rdata;obj->nbit = nbit; return;
             break;       
       default:break;
      }
