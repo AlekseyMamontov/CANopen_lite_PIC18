@@ -350,6 +350,8 @@ struct xCanOpen{
     struct PDO_object*  pdo[MAX_PDO_OBJECT];
     struct SDO_object*  sdo[1];
 
+    uint16_t* timer100ms[MAX_PDO_OBJECT]; // !! -not quite right
+    uint8_t  n_obj_timer;
 };
 
 /* --------------- ERROR ----------------*/
@@ -520,7 +522,8 @@ void process_the_TxPDO_message(struct PDO_object* pdo){
         if(sum_nbit > MAX_MAP_NBIT) break;
         if(!(pdo->pdo_map->quick_mapping[index])) break;
         
-            switch(pdo->pdo_map->map[index].info.nbit){   
+            switch(pdo->pdo_map->map[index].info.nbit){  
+		    
                 case 0x08: *(data+addr) = 
                             *((uint8_t*)(pdo->pdo_map->quick_mapping[index]));
                             addr++;break;
@@ -600,8 +603,8 @@ struct func_pdo func_default={
     .process_map = map_object_check,
     .process_rxpdo = process_the_RxPDO_message,
     .process_txpdo = process_the_TxPDO_message,
-    .start_Inhibit_timer=0,
-    .start_event_timer=0,
+ ///   .start_Inhibit_timer=0,
+ //   .start_event_timer=0,
     
 };
 
@@ -623,8 +626,14 @@ void pdo_object_type(struct PDO_object *pdo){
             if(pdo->cond.flag.rx_tx){
          //txpdo
                 if(!pdo->cond.flag.event_txpdo)break;
-                if(pdo->cond.flag.inhibit_time)break;
-                if(pdo->cond.flag.event_timer) break;
+		
+                if(pdo->cond.flag.inhibit_time){
+			if(pdo->counter_Inhibit_time) break;
+			pdo->cond.flag.inhibit_time = 0;}
+		
+                if(pdo->cond.flag.event_timer){
+			if(pdo->counter_Event_timer) break;
+			pdo->cond.flag.event_timer = 0;}
                
                 if(pdo->func->process_txpdo)pdo->func->process_txpdo(pdo);
                 
@@ -657,14 +666,16 @@ void pdo_object_type(struct PDO_object *pdo){
             
             if(pdo->cond.flag.rx_tx){
          //txpdo
-                if(pdo->cond.flag.inhibit_time)break;
+                if(pdo->cond.flag.inhibit_time){
+			if(pdo->counter_Inhibit_time) break;
+			pdo->cond.flag.inhibit_time = 0;}
 		
                 if(pdo->func->process_txpdo)pdo->func->process_txpdo(pdo);
 				
 		if(pdo->Inhibit_time){	    
 			pdo->counter_Inhibit_time = pdo->Inhibit_time;    
 			pdo->cond.flag.inhibit_time = 1;}
-		pdo->cond.flag.inhibit_time = 1;
+	
                 pdo->cond.flag.new_msg = 1;
                 
             }else{
@@ -740,19 +751,34 @@ void pdo_object_type(struct PDO_object *pdo){
     } 
 };
 
-void pdo_timers(struct PDO_object *pdo){
-	
-    if(pdo->cond.flag.lock) break;
-    
-    if(pdo->cond.flag.inhibit_time){
-	if(pdo->counter_Inhibit_time) pdo->counter_Inhibit_time --;
-	if(!pdo->counter_Inhibit_time) pdo->cond.flag.inhibit_time =0;}
-    
-    if(pdo->cond.flag.event_timer){
-	if(pdo->counter_Event_timer) pdo->counter_Event_timer --;
-        if(!pdo->counter_Event_timer)  pdo->cond.flag.inhibit_time =0;}
+//example
+#define MAX_OBJ_TIMER MAX_MAP_DATA+(MAX_MAP_DATA/2)+1
 
+uint16_t *pdo_timer[MAX_OBJ_TIMER];
+
+void timer100ms(uint16_t** counter){
+
+	while (*counter != NULL){
+	
+	   if((**counter)) (**counter)-- ;
+	   counter ++;
+	} 
+}
+
+void add_timer100ms(uint16_t *addr){
+
+	for(uint8_t i=0;i<MAX_OBJ_TIMER;i++){
+	
+		if(pdo_timer[i]==addr)break;
+		if(pdo_timer[i]==NULL) pdo_timer[i] = addr;
+	
+	};
 };
+
+
+
+
+
 
 
 /* ----------------  SDO COMMUNICATION -----------------*/
