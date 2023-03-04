@@ -59,26 +59,26 @@
 #define PDO_COMM        0x20
 #define PDO_MAPPING     0x21
 #define SDO_PARAMETER	0x22
-#define IDENTITY		0x23
+#define IDENTITY	0x23
 	
 /*Object Dictionary TYPE Definitions cia301*/
-#define OD_NULL 		0
+#define OD_NULL 0
 /* Large variable amount of data e.g. executable program code */
-#define OD_DOMAIN 		2
+#define OD_DOMAIN 2
 /*A multiple data field object where the data fields may be any combination of
 simple variables. Sub-index 0 is of UNSIGNED8 and sub-index 255 is of
 UNSIGNED32 and therefore not part of the RECORD data */
-#define OD_RECORD 		9
+#define OD_RECORD 9
 /* Defines a new record type e.g. the PDO mapping structure at 21h*/
-#define OD_DEFSTRUCT	6
+#define OD_DEFSTRUCT 6
 /* Denotes a type definition such as a BOOLEAN, UNSIGNED16, FLOAT and so on*/
-#define OD_DEFTYPE      5
+#define OD_DEFTYPE 5
 /* A single value such as anUNSIGNED8, BOOLEAN, FLOAT,INTEGER16, VISIBLE STRING etc.*/
-#define OD_VAR          7	
+#define OD_VAR  7	
 /* A multiple data field object where each data field is a simple variable of
 the SAME basic data type e.g. array of UNSIGNED16 etc. Sub-index 0 is
 of UNSIGNED8 and therefore not part of the ARRAY data*/
-#define OD_ARRAY 		8
+#define OD_ARRAY 8
 
 /*Attribute*/	
 
@@ -112,7 +112,7 @@ struct data_object{
     
 };
 
- struct OD_object{
+struct OD_object{
     
     uint16_t index;
     void*     data;
@@ -143,7 +143,7 @@ struct string_object{
     uint8_t     cond_sdo;   
 };
 
-union map_data{
+union  map_data{
     
     uint32_t        data32;
     struct map_info info;
@@ -164,7 +164,7 @@ struct PDO_mapping {
   
 };
 
-union cond {
+union  cond {
     
     struct{
 	    
@@ -199,10 +199,12 @@ struct PDO_object{
     uint16_t	Inhibit_time; 	// n x 100ms
     uint16_t	Event_timer;	// n x 100ms
     
-    // quick access to the structure map
+    // hidden block 
     
-    uint16_t    counter_Inhibit_time; // 0 <-- (Inhibit_time --)
-    uint16_t    counter_Event_timer;  // 0 <-- (Event_timer--)
+    uint16_t*	counter_Inhibit_time; // 0 <-- (Inhibit_time --)
+    uint16_t*	counter_Event_timer;  // 0 <-- (Event_timer--)
+    
+    // quick access to the structure map
     
     struct PDO_mapping* pdo_map;
     
@@ -210,22 +212,23 @@ struct PDO_object{
     uint8_t     counter_sync;
     
     // function
+    
     struct func_pdo  *func;
+    
     //void *       node_parent;
     
     // Buffer 
+    
     uint8_t      data[MAX_MAP_DATA];
     
 };  
 
 struct func_pdo{
     
-    void   (*init_xpdo)(struct PDO_object* pdo);
+    void   (*init_pdo)(struct PDO_object* pdo);
     void   (*process_map)(struct PDO_object* pdo);
     void   (*process_rxpdo)(struct PDO_object *pdo);
     void   (*process_txpdo)(struct PDO_object *pdo);
-    //void   (*start_Inhibit_timer)(struct PDO_object *pdo);
-    //void   (*start_event_timer)(struct PDO_object *pdo);
     
 };
 
@@ -235,11 +238,12 @@ struct SDO_object{
    
     uint32_t	cob_id_client;
     uint32_t	cob_id_server;
-    uint8_t		node_id;
-    uint8_t		sub_index;
+    uint8_t	node_id;
+    uint8_t	sub_index;
+    
 };
 
-union cob_id{
+union  cob_id{
     
     uint32_t id;
     struct{
@@ -333,6 +337,7 @@ typedef union {
 #define COB_ID      array[1]&0x7f
 
 #define MAX_PDO_OBJECT 8 //4x2
+#define MAX_OBJ_TIMER MAX_MAP_DATA+(MAX_MAP_DATA/2)+1
 
 struct xCanOpen{
 
@@ -344,13 +349,14 @@ struct xCanOpen{
     uint8_t  (*init)(uint8_t id);
     uint8_t  (*receiving_message)(CanOpen_msg *msg);
     uint8_t  (*sending_message)(CanOpen_msg *msg);
+    void     (*pdo_timer)();
 
     struct OD_object*   map;
     
     struct PDO_object*  pdo[MAX_PDO_OBJECT];
     struct SDO_object*  sdo[1];
 
-    uint16_t* timer100ms[MAX_PDO_OBJECT]; // !! -not quite right
+    uint16_t pdo_timers [MAX_OBJ_TIMER]; // !! -not quite right
     uint8_t  n_obj_timer;
 };
 
@@ -575,46 +581,59 @@ void copy_txPDO_array_to_message(CanOpen_msg* msg,struct PDO_object* pdo){
     
 };
 
+inline void start_Inhibit_time(struct PDO_object *pdo){
+	
+	if(pdo->counter_Inhibit_time && pdo->Inhibit_time){	    	
+		*pdo->counter_Inhibit_time = pdo->Inhibit_time;    
+		pdo->cond.flag.inhibit_time = 1;}
+};
+
+inline void start_Event_timer(struct PDO_object *pdo){
+	
+	if(pdo->counter_Event_timer && pdo->Event_timer){    
+		*pdo->counter_Event_timer = pdo->Event_timer;    
+		pdo->cond.flag.event_timer =1;}
+};
+
+
 void init_xPDO(struct PDO_object* pdo){
     
     if(!pdo)return;
     
-    if(pdo->cob_id&PDO_DISABLED){ pdo->cond.flag.lock = 1; return;}
-    pdo->cond.flag.lock = 0;
+    pdo->cond.flag.lock = 1;
+    if(pdo->cob_id&PDO_DISABLED)return;
     
     map_object_check(pdo);
+    if(pdo->pdo_map->sub_index == 0)return;
     
-    if(pdo->Transmission_type > 0xFE){ pdo->cond.flag.sync =0;return;}
+    switch(pdo->Transmission_type){
     
-    if(pdo->Inhibit_time){	    
-	pdo->counter_Inhibit_time = pdo->Inhibit_time;    
-        pdo->cond.flag.inhibit_time = 1;}
-    
-    if(pdo->Event_timer){    
-	pdo->counter_Event_timer = pdo->Event_timer;    
-        pdo->cond.flag.event_timer =1;}
-    
+	case 0xFF: start_Event_timer(pdo);
+	case 0xFE: start_Inhibit_time(pdo); break;
+	default: if(pdo->Transmission_type > 0xF0) return;
+	         pdo->cond.flag.sync = pdo->Transmission_type;
+		 break;
+    };
+    pdo->cond.flag.new_msg = 0;
+    pdo->cond.flag.lock = 0;
 };
 
 
 struct func_pdo func_default={
     
-    .init_xpdo = init_xPDO,
+    .init_pdo = init_xPDO,
     .process_map = map_object_check,
     .process_rxpdo = process_the_RxPDO_message,
     .process_txpdo = process_the_TxPDO_message,
- ///   .start_Inhibit_timer=0,
- //   .start_event_timer=0,
-    
-};
 
+};
 
 void pdo_object_type(struct PDO_object *pdo){
     
     if(!pdo)return;
     
     if(pdo->cond.flag.lock) return;
-    if(pdo->cond.flag.init_pdo)pdo->func->init_xpdo(pdo);
+    if(pdo->cond.flag.init_pdo)pdo->func->init_pdo(pdo);
     
     switch(pdo->Transmission_type){
  
@@ -627,25 +646,22 @@ void pdo_object_type(struct PDO_object *pdo){
          //txpdo
                 if(!pdo->cond.flag.event_txpdo)break;
 		
-                if(pdo->cond.flag.inhibit_time){
-			if(pdo->counter_Inhibit_time) break;
-			pdo->cond.flag.inhibit_time = 0;}
+                if(pdo->cond.flag.inhibit_time){	
+			if(pdo->counter_Inhibit_time && 
+			   *pdo->counter_Inhibit_time) break;
+		   pdo->cond.flag.inhibit_time = 0;}
 		
                 if(pdo->cond.flag.event_timer){
-			if(pdo->counter_Event_timer) break;
-			pdo->cond.flag.event_timer = 0;}
+			if(pdo->counter_Event_timer &&
+			   *pdo->counter_Event_timer) break;
+		   pdo->cond.flag.event_timer = 0;}
                
                 if(pdo->func->process_txpdo)pdo->func->process_txpdo(pdo);
                 
                 pdo->cond.flag.event_txpdo=0;
                 
-		if(pdo->Inhibit_time){	    
-			pdo->counter_Inhibit_time = pdo->Inhibit_time;    
-			pdo->cond.flag.inhibit_time = 1;}
-    
-		if(pdo->Event_timer){    
-			pdo->counter_Event_timer = pdo->Event_timer;    
-			pdo->cond.flag.event_timer =1;}
+		start_Inhibit_time(pdo);
+		start_Event_timer (pdo);
 		
                 pdo->cond.flag.new_msg = 1;
                 
@@ -666,15 +682,14 @@ void pdo_object_type(struct PDO_object *pdo){
             
             if(pdo->cond.flag.rx_tx){
          //txpdo
-                if(pdo->cond.flag.inhibit_time){
-			if(pdo->counter_Inhibit_time) break;
-			pdo->cond.flag.inhibit_time = 0;}
+                if(pdo->cond.flag.inhibit_time){	
+			if(pdo->counter_Inhibit_time && 
+			   *pdo->counter_Inhibit_time) break;
+		   pdo->cond.flag.inhibit_time = 0;}
 		
                 if(pdo->func->process_txpdo)pdo->func->process_txpdo(pdo);
 				
-		if(pdo->Inhibit_time){	    
-			pdo->counter_Inhibit_time = pdo->Inhibit_time;    
-			pdo->cond.flag.inhibit_time = 1;}
+		start_Inhibit_time(pdo);
 	
                 pdo->cond.flag.new_msg = 1;
                 
@@ -751,29 +766,6 @@ void pdo_object_type(struct PDO_object *pdo){
     } 
 };
 
-//example
-#define MAX_OBJ_TIMER MAX_MAP_DATA+(MAX_MAP_DATA/2)+1
-
-uint16_t *pdo_timer[MAX_OBJ_TIMER];
-
-void timer100ms(uint16_t** counter){
-
-	while (*counter != NULL){
-	
-	   if((**counter)) (**counter)-- ;
-	   counter ++;
-	} 
-}
-
-void add_timer100ms(uint16_t *addr){
-
-	for(uint8_t i=0;i<MAX_OBJ_TIMER;i++){
-	
-		if(pdo_timer[i]==addr)break;
-		if(pdo_timer[i]==NULL) pdo_timer[i] = addr;
-	
-	};
-};
 
 
 
@@ -1544,6 +1536,15 @@ void pdo_objects_add_id(struct xCanOpen* node){
    
 };
 
+/*
+ example timer
+ 
+ void timer(){
+  for (uint8_t i=0; i< xCanOpen.n_obj_timer; i++){
+	if(...xCanOpen.timers[i])...xCanOpen.timers[i] --;
+ };
+
+*/
 
 
 
@@ -1580,5 +1581,27 @@ switch(obj->request_type){
            break;
     };
 
- 
+ * old idea
+
+uint16_t *pdo_timer[MAX_OBJ_TIMER];
+
+void timer100ms(uint16_t** counter){
+
+	while (*counter != NULL){
+	
+	   if((**counter)) (**counter)-- ;
+	   counter ++;
+	} 
+}
+
+void add_timer100ms(uint16_t *addr){
+
+	for(uint8_t i=0;i<MAX_OBJ_TIMER;i++){
+	
+		if(pdo_timer[i]==addr)break;
+		if(pdo_timer[i]==NULL) pdo_timer[i] = addr;
+	
+	};
+};
+
  */
