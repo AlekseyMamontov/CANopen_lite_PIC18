@@ -15,7 +15,7 @@ extern "C" {
 #endif
  
   
-    
+static struct xCanOpen Triac_rele;    
     
 
 uint32_t
@@ -36,7 +36,7 @@ uint32_t
         
  output_port[2]    ={0x00,0x00},//6200h
  polary_output[2]  ={0x00,0x00},//6202h
- filter_output[2]  ={0xFF,0xFF},//6208h
+ filter_output[2]  ={0xFF,0x0F},//6208h
         
  // AC220V portA.5 
         
@@ -80,14 +80,19 @@ static struct OD_object OD_Triac_rele[];
     
     // visible block
     
-    uint8_t		sub_index ;
-    uint8_t		Transmission_type;
+    uint8_t	sub_index ;
+    uint8_t	Transmission_type;
     uint8_t     Sync_start_value;
     
     uint32_t	cob_id ;
     
-    uint16_t	Inhibit_time; 	
-    uint16_t	Event_timer;
+    uint16_t	Inhibit_time; 	// n x 100ms
+    uint16_t	Event_timer;	// n x 100ms
+    
+    // hidden block 
+    
+    uint16_t*	counter_Inhibit_time; // 0 <-- (Inhibit_time --)
+    uint16_t*	counter_Event_timer;  // 0 <-- (Event_timer--)
     
     // quick access to the structure map
     
@@ -97,35 +102,25 @@ static struct OD_object OD_Triac_rele[];
     uint8_t     counter_sync;
     
     // function
+    
     struct func_pdo  *func;
-  //void *       node_parent;
+    
+    //void *       node_parent;
     
     // Buffer 
+    
     uint8_t      data[MAX_MAP_DATA];
     
 };  
- 
- struct PDO_mapping {
-    
-    uint8_t           sub_index;
-    union map_data    map[MAX_MAP_DATA];
-    // quick access to the map
-    void *            quick_mapping[MAX_MAP_DATA];
-    struct OD_object* node_map;
-    
-};
- 
- 
- 
+ * 
  **/ 
 struct func_pdo func_rele={
     
-    .init_xpdo = init_xPDO,
-    .process_map = map_object_check,
+    .init_pdo	   = init_xPDO,
+    .process_map   = map_object_check,
     .process_rxpdo = process_the_RxPDO_message,
     .process_txpdo = process_the_TxPDO_message,
  
-    
 };
  
 /******* rxPDO1  *********/
@@ -133,13 +128,16 @@ struct func_pdo func_rele={
 struct PDO_mapping map_rxpdo1 = {
 
     .sub_index = 2,
-    .map = {{0x08010062},
+    .map = {
+	    {0x08010062},
             {0x08020062},
             {0x00000000},
-            },
-    .quick_mapping = {(void*)&output_port[0],
-                      (void*)&output_port[1],
-                      NULL},
+           },
+    .quick_mapping = {
+	    (void*)&output_port[0],
+            (void*)&output_port[1],
+            NULL
+	   },
                       
     .node_map = OD_Triac_rele,
     
@@ -149,47 +147,71 @@ struct PDO_mapping map_rxpdo1 = {
 struct PDO_object rx_pdo1={
 
     .cond ={.stat = 0x20}, // initPDO
-    .Transmission_type = 0xFF,
-    .cob_id = rxPDO1,
     .sub_index = 5,
+    .Transmission_type = 0xFF,
+    
+    .cob_id = rxPDO1,
+ 
+    .Event_timer = 0,
+    .Inhibit_time = 0,    
+    .counter_Inhibit_time = NULL,
+    .counter_Event_timer = NULL,    
+    
+    
     .pdo_map = &map_rxpdo1,
     .n_byte_pdo_map = 2,
+    
     .counter_sync = 0,
+    
     .func = &func_rele,
+
     .data ={0},
 };
 
 
-/******* txPDO1  *********/
+/******---------- txPDO1 ---------------*********/
 
 struct PDO_mapping map_txpdo1 = {
 
     .sub_index = 1,
     
-    .map = {{0x08010060},
+    .map = {
+	    {0x08010060},
             {0x00000000},
             },
-    .quick_mapping = {(void*)&input_port[0],
-                      NULL},
+	    
+    .quick_mapping = {
+			(void*)&input_port[0],
+			NULL
+		      },
                       
     .node_map = OD_Triac_rele,
-    
+       
 };
 
 
 struct PDO_object tx_pdo1={
     
     .cond = {.stat = 0x20}, // initPDO
-    .Transmission_type = 0xFF,
-    .cob_id = txPDO1,
     .sub_index = 5,
-    .pdo_map = &map_rxpdo1,
+    .Transmission_type = 0xFF,
+    
+    .cob_id = txPDO1,
+        
     .Event_timer = 0,
     .Inhibit_time = 0,
+    .counter_Inhibit_time = &Triac_rele.pdo_timers[0],
+    .counter_Event_timer = &Triac_rele.pdo_timers[1],
+    
+    .pdo_map = &map_txpdo1,
     .n_byte_pdo_map = 1,
+    
+    .counter_sync = 0,
+    
     .func = &func_rele,
-    .data = {0},
-
+    
+    .data = {0}, 
+    
 };
 
 
@@ -212,22 +234,23 @@ struct SDO_object sdo_Triac_rele={
 static
 struct xCanOpen Triac_rele = {
     
-.pdo = {
-        &rx_pdo1,// 200 + cob_id
-        &tx_pdo1,// 180 + cob_id
-        },
-       
-.sdo = {&sdo_Triac_rele},
-
-.map = OD_Triac_rele,
+	.pdo = {
+		&rx_pdo1,// 200 + cob_id
+		&tx_pdo1,// 180 + cob_id
+		},
+	.sdo = {&sdo_Triac_rele},
+	.map = OD_Triac_rele,
+	.pdo_timers = {0},
+	.n_obj_timer = 2,
 
 };    
  
 
 // OD_table
+
     static struct OD_object OD_Triac_rele[18]={
 
-    {0x1000,(void*)&N1000_Device_Type, ro_object_4byte},
+    {0x1000,(void*)&N1000_Device_Type,   ro_object_4byte},
     {0x1001,(void*)&N1001_Error_register,ro_object_1byte},
     {0x1003,(void*)&N1003_Error,        ro_array_4byte},
     {0x1008,(void*)&N1008_Device_name,  ro_object_4byte},
