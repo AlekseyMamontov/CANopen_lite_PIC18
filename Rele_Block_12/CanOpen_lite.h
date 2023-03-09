@@ -157,19 +157,6 @@ union  map_data{
 
 #define MAX_MAP_DATA 8
 
-struct PDO_Mapping {
-    
-    uint8_t           sub_index;
-    union map_data*   map;
-    
-    // quick access to the map
-    struct OD_Object*  node_map;
-    void **	  quick_mapping;
-    
-    //union map_data    map[MAX_MAP_DATA];
-    //void *            quick_mapping[MAX_MAP_DATA];
-};
-
 /*
  union  cond {
 	
@@ -188,8 +175,39 @@ struct PDO_Mapping {
     
     }flag;     
 };
-*/
+due to the fact that the XC8 is buggy */
 
+#define setSync		pdo->cond |=0x01
+#define clrSync		pdo->cond &=0xFE
+#define checkSync	pdo->cond & 0x01
+
+#define setNew_msg	pdo->cond |=0x02
+#define clrNew_msg	pdo->cond &=0xFD
+#define checkNew_msg	pdo->cond & 0x02
+
+#define setInhibit_time   pdo->cond |=0x04
+#define clrInhibit_time   pdo->cond &=0xFB
+#define checkInhibit_time pdo->cond & 0x04
+
+#define setEvent_timer    pdo->cond |=0x08
+#define clrEvent_timer    pdo->cond &=0xF7
+#define checkEvent_timer  pdo->cond & 0x08
+
+#define setEvent_txpdo    pdo->cond |=0x10
+#define clrEvent_txpdo    pdo->cond &=0xEF
+#define checkEvent_txpdo  pdo->cond & 0x10
+
+#define setInit_pdo     pdo->cond |=0x20
+#define clrInit_pdo     pdo->cond &=0xDF
+#define checkInit_pdo	pdo->cond & 0x20
+
+#define setRx_Tx        pdo->cond |=0x40
+#define clrRX_TX	pdo->cond &=0xBF
+#define checkRx_Tx	pdo->cond & 0x40
+
+#define setLock		pdo->cond |=0x80
+#define clrLock         pdo->cond &=0x7F
+#define checkLock	pdo->cond & 0x80
 
 struct PDO_Object{
     
@@ -206,24 +224,30 @@ struct PDO_Object{
     uint16_t	Inhibit_time; 	// n x 100ms
     uint16_t	Event_timer;	// n x 100ms
     
+    // mapping 
+    union 
+    map_data*   map;
+    uint8_t     sub_index_map;
+    
     // hidden block 
     
+    uint8_t     n_byte_pdo_map;
+    
+    uint8_t     counter_sync;
     uint16_t*	counter_Inhibit_time; // 0 <-- (Inhibit_time --)
     uint16_t*	counter_Event_timer;  // 0 <-- (Event_timer--)
     
-    uint8_t     counter_sync;
-        
-    uint8_t     n_byte_pdo_map;
-    struct PDO_Mapping* pdo_map;
+    // Buffer
+    
+    uint8_t*    buffer;
+    
+    OD_Object*  node_map;
+    void **	map_addr_obj;
     
     // function
     
     struct func_pdo  *func;
      
-    // Buffer 
-    
-    uint8_t*      buffer;
-    
 };  
 
 struct func_pdo{
@@ -406,7 +430,8 @@ uint8_t* copy_rdata_answer (uint8_t* wdata, uint8_t* rdata, uint8_t nbit){
     for(uint8_t i=0;i<nbit;i++){*(wdata + i) = *(rdata+i);}
     return (rdata+nbit);
     
-};	
+};
+
 uint8_t* copy_wdata_answer (uint8_t* wdata, uint8_t* rdata, uint8_t nbit){
     
     if(!wdata || !rdata)return wdata;
@@ -442,24 +467,24 @@ void map_object_check(struct PDO_Object* pdo){
    if(!pdo)return;
    
    uint8_t sum_nbit = 0, subindex = 0;
-   union map_data* map = pdo->pdo_map->map;
+   union map_data* map = pdo->map;
    
    
-   if(pdo->pdo_map->sub_index > MAX_MAP_DATA)
-                    pdo->pdo_map->sub_index = MAX_MAP_DATA;
+   if(pdo->sub_index_map > MAX_MAP_DATA)
+                    pdo->sub_index_map = MAX_MAP_DATA;
 
-   while(subindex < (pdo->pdo_map->sub_index)){
+   while(subindex < pdo->sub_index_map){
        
        if(!(map + subindex)->info.index||
           !(map + subindex)->info.nbit ||
-          !*((pdo->pdo_map->quick_mapping)+subindex) ) break;
+          !*((pdo->map_addr_obj)+ subindex)) break;
        
        sum_nbit += (map + subindex)->info.nbit;
        if(sum_nbit > MAX_MAP_NBIT) break; 
        subindex ++;
    };
    pdo->n_byte_pdo_map = sum_nbit >>3;
-   pdo->pdo_map->sub_index = subindex;
+   pdo->sub_index_map = subindex;
    
 };
 
@@ -467,8 +492,7 @@ void process_the_RxPDO_message(struct PDO_Object* pdo){
     
     if(!pdo)return;
     
-    struct PDO_Mapping* pdomap = pdo->pdo_map;
-    uint8_t   num = 0, subindex = pdomap->sub_index,
+    uint8_t   num = 0, subindex = pdo->sub_index_map,
 	      sum_nbit = 0, nbit, *addr, *buffer= pdo->buffer;
               
     if(!subindex) return;
@@ -476,10 +500,10 @@ void process_the_RxPDO_message(struct PDO_Object* pdo){
     
     while(num < subindex){
 	 
-	 nbit =((pdomap->map)+num)->info.nbit; 
+	 nbit =((pdo->map)+num)->info.nbit; 
 	 sum_nbit += nbit;   
          if(sum_nbit > MAX_MAP_NBIT) break;
-	 addr = *((pdomap->quick_mapping)+num);
+	 addr = (uint8_t*)(*pdo->map_addr_obj + num);
          if(!addr) break;
 	 buffer = copy_rdata_answer (addr,buffer,nbit); // object <- buffer
          num++;
@@ -491,7 +515,7 @@ void copy_rxPDO_message_to_array(CanOpen_Msg* msg,struct PDO_Object* pdo){
     
     if(msg->can_frame.dlc < pdo->n_byte_pdo_map) return; 
     copy_xPDO(pdo->buffer,(uint8_t*)&msg->can_frame.data0,pdo->n_byte_pdo_map); //or 8?
-    pdo->cond |= 0x02; // 2bit new message
+    setNew_msg; 
     
 };
 
@@ -500,8 +524,7 @@ void process_the_TxPDO_message(struct PDO_Object* pdo){
     
     if(!pdo)return;
     
-    struct PDO_Mapping* pdomap = pdo->pdo_map;
-    uint8_t   num = 0, subindex = pdomap->sub_index,
+    uint8_t   num = 0, subindex = pdo->sub_index_map,
 	      sum_nbit = 0, nbit, *addr, *buffer = pdo->buffer;
     
     if(!subindex) return;
@@ -509,10 +532,10 @@ void process_the_TxPDO_message(struct PDO_Object* pdo){
     
         while(num < subindex){
 	 
-	 nbit =((pdomap->map)+num)->info.nbit; 
+	 nbit =(pdo->map + num)->info.nbit; 
 	 sum_nbit += nbit;   
          if(sum_nbit > MAX_MAP_NBIT) break;
-	 addr = *((pdomap->quick_mapping)+num);
+	 addr =(uint8_t*)(*pdo->map_addr_obj + num);
          if(!addr) break;
 	 buffer = copy_wdata_answer (buffer,addr,nbit);// object -> buffer
          num++;
@@ -530,14 +553,14 @@ inline void start_Inhibit_time(struct PDO_Object *pdo){
 	
 	if(pdo->counter_Inhibit_time && pdo->Inhibit_time){	    	
 		*pdo->counter_Inhibit_time = pdo->Inhibit_time;    
-		pdo->cond |= 0x40 ;} //set 1 Inhibit
+		setInhibit_time ;} 
 };
 
 inline void start_Event_timer(struct PDO_Object *pdo){
 	
 	if(pdo->counter_Event_timer && pdo->Event_timer){    
 		*pdo->counter_Event_timer = pdo->Event_timer;    
-		pdo->cond |= 0x08;} // set 
+		setEvent_timer;} 
 };
 
 
@@ -545,12 +568,13 @@ void init_xPDO(struct PDO_object* pdo){
     
     if(!pdo)return;
     
-    pdo->cond.flag.lock = 1;
-    pdo->cond.flag.new_msg = 0;
+    setLock;
+    clrNew_msg;
     
     if(pdo->cob_id&PDO_DISABLED)return;
     
     pdo->func->check_map(pdo);
+    
     if(pdo->pdo_map->sub_index == 0)return;
     
     switch(pdo->Transmission_type){
@@ -558,11 +582,11 @@ void init_xPDO(struct PDO_object* pdo){
 	case 0xFF: start_Event_timer(pdo);
 	case 0xFE: start_Inhibit_time(pdo); break;
 	default: if(pdo->Transmission_type > 0xF0) return;
-	         pdo->cond.flag.sync = pdo->Transmission_type;
+	         pdo->counter_sync = pdo->Transmission_type;
 		 break;
     };
 
-    pdo->cond.flag.lock = 0;
+    clrLock;
 };
 
 
@@ -579,8 +603,8 @@ void pdo_object_type(struct PDO_object *pdo){
     
     if(!pdo)return;
     
-    if(pdo->cond.flag.lock) return;
-    if(pdo->cond.flag.init_pdo)pdo->func->init_pdo(pdo);
+    if(checkLock) return;
+    if(checkInit_pdo && pdo->func->init_pdo) pdo->func->init_pdo(pdo);
     
     switch(pdo->Transmission_type){
  
