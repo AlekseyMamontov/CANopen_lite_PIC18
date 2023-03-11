@@ -412,6 +412,18 @@ void copy_data (uint8_t* wdata, uint8_t* rdata, uint8_t nbit){
     
 };
 
+void copy_data_sdo(uint8_t* wdata, uint8_t* rdata, uint8_t nbit){
+	
+	if(!wdata || !rdata)return;
+	switch(nbit){
+	case 0x20:*(wdata++) = *(rdata++);
+	case 0x18:*(wdata++) = *(rdata++);
+	case 0x10:*(wdata++) = *(rdata++);
+	case 0x08:*(wdata) = *(rdata);break;
+	default:break;};
+};
+
+
 uint8_t* copy_rdata_answer (uint8_t* wdata, uint8_t* rdata, uint8_t nbit){
     
     if(!wdata || !rdata)return wdata;
@@ -437,6 +449,20 @@ inline void copy_xPDO(uint8_t* wdata,uint8_t* rdata,uint8_t dlc){
         *(wdata+i)= i < dlc?*(rdata+i):0;}
     
 };
+
+uint8_t compare_bytes(uint8_t* wdata, uint8_t* rdata, uint8_t nbit){
+	
+	if(!wdata || !rdata)  return 0;
+	nbit >>=3;
+	for(uint8_t i=0;i<nbit;i++){
+        if(*(wdata + i) != *(rdata+i)) return 0;
+	}
+	return 0x01;
+};
+
+
+
+
 
 
 
