@@ -215,6 +215,9 @@ due to the fact that the XC8 is buggy */
 #define clrLock         *(pdo->cond) &=0x7F
 #define checkLock	*(pdo->cond) & 0x80
 
+
+// ROM memory
+
 struct PDO_Object{
     
     uint8_t*	cond;
