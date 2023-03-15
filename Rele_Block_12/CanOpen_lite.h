@@ -95,6 +95,11 @@ of UNSIGNED8 and therefore not part of the ARRAY data*/
 
 /* structure */
 	
+#define SDO_request       0
+#define MAP_txpdo_request 1
+#define MAP_rxpdo_request 2
+#define MAP_info          3
+	
 struct Data_Object{
     
     uint8_t     request_type;
@@ -106,6 +111,7 @@ struct Data_Object{
     void*       rw_object;
     
 };
+
 
 struct OD_Object{
     
@@ -228,12 +234,12 @@ struct PDO_Object{
     // mapping
     
     uint8_t*	sub_index_map;
-    union 
-    map_data*   map;
-    struct
-    OD_Object*	node_map;
-    void **	map_addr_obj;
+    uint32_t*   map;	      // massiv[MAX_MAP_DATA]
+    uint8_t**	map_addr_obj; // massiv[MAX_MAP_DATA]
     uint8_t*    n_byte_pdo_map;
+
+    struct
+    OD_Object*	OD_0bject_list; // 
     
     // Buffer
     
@@ -477,52 +483,84 @@ uint8_t compare_bytes(uint8_t* wdata, uint8_t* rdata, uint8_t nbit){
 #define MAX_MAP_NBIT MAX_MAP_DATA*8 //warning 8bit x n_byte
 
 
-void map_object_check(struct PDO_Object* pdo){
-   
-   if(!pdo)return;
-   
-   uint8_t sum_nbit = 0, subindex = 0,*subindex_map = pdo->sub_index_map;
-   union map_data* map = pdo->map;
-   
-   if(*subindex_map > MAX_MAP_DATA) *subindex_map = MAX_MAP_DATA;
 
-   while(subindex < *subindex_map){
-       
-       if(!(map + subindex)->info.index||
-          !(map + subindex)->info.nbit ||
-          !*((pdo->map_addr_obj)+ subindex)) break;
-       
-       sum_nbit += (map + subindex)->info.nbit;
-       if(sum_nbit > MAX_MAP_NBIT) break; 
-       subindex ++;
-   };
-   *(pdo->n_byte_pdo_map) = sum_nbit >>3;
-   *subindex_map = subindex;
+
+void build_map_objects(struct PDO_Object* pdo){
+
+     if(!pdo)return;
    
+     uint8_t sum_nbit = 0,sub_i = 0, subindex_map = *pdo->sub_index_map,
+	     *addr_obj,
+	     **map_obj = (uint8_t**)pdo->map_addr_obj;
+     
+     struct Data_Object d_obj;
+     struct OD_Object* obj;   
+     union  map_data* map;
+           
+     if(subindex_map > MAX_MAP_DATA) subindex_map = MAX_MAP_DATA;
+    
+     while(sub_i < subindex_map){
+	         
+	map = (union map_data* )(pdo->map)+sub_i;
+	if(map->info.nbit == 0 || map->info.index == 0) break;
+	
+	obj = OD_search_index(map->info.index,pdo->OD_0bject_list);
+        if(obj == NULL) break;
+	
+	d_obj.request_type = MAP_info;
+	d_obj.data_object = obj;
+	d_obj.sub_index = map->info.sub_index;
+	
+	obj->data_func(&d_obj);
+	
+	if(d_obj.rw_object == NULL || d_obj.attribute & NO_MAP ||
+	   map->info.nbit != d_obj.nbit) break;
+	
+	/* check ro and wo*/
+	if(checkRxTx){ if(d_obj.attribute&RO == 0) break; //tx ->read memory?
+	}else{ if(d_obj.attribute&WO == 0) break; } // rx -> save_mem ?
+	
+
+        sum_nbit += map->info.nbit;
+        if(sum_nbit > MAX_MAP_NBIT) break;
+	
+	addr_obj = (uint8_t*)d_obj.rw_object;
+	
+       	switch(d_obj.nbit){
+		
+	case 0x20:*map_obj++ = addr_obj++;
+	case 0x18:*map_obj++ = addr_obj++;
+	case 0x10:*map_obj++ = addr_obj++;
+	case 0x08:*map_obj = addr_obj;break;
+	default:return;break;}; 
+       
+        sub_i++;
+      };
+      
+      if(!sub_i)setLock; // subindex map == 0? pdo lock
+      
+      *pdo->sub_index_map = sub_i;
+      *pdo->n_byte_pdo_map = sum_nbit >>3;
+      
 };
+
 
 void process_the_RxPDO_message(struct PDO_Object* pdo){
     
     if(!pdo)return;
     
-    uint8_t   num = 0, subindex = *(pdo->sub_index_map),
-	      sum_nbit = 0, nbit, *addr, *buffer= pdo->buffer;
-              
-    if(!subindex) return;
-    if(subindex > MAX_MAP_DATA) subindex = MAX_MAP_DATA;
+    uint8_t   num = 0, 
+	      **addr  = pdo->map_addr_obj, 
+	      *buffer = pdo->buffer;
     
-    while(num < subindex){
-	 
-	 nbit =((pdo->map)+num)->info.nbit; 
-	 sum_nbit += nbit;   
-         if(sum_nbit > MAX_MAP_NBIT) break;
-	 addr = (uint8_t*)(*pdo->map_addr_obj + num);
-         if(!addr) break;
-	 buffer = copy_rdata_answer (addr,buffer,nbit); // object <- buffer
-         num++;
-	 
-    };    
+    while(num < (pdo->n_byte_pdo_map)){ 
+	    
+	    **(addr+num) = *(buffer+num);
+	    num++;
+    
+    }
 };
+
 
 void copy_rxPDO_message_to_array(CanOpen_Msg* msg,struct PDO_Object* pdo){
     
@@ -537,23 +575,16 @@ void process_the_TxPDO_message(struct PDO_Object* pdo){
     
     if(!pdo)return;
     
-    uint8_t   num = 0, subindex = *(pdo->sub_index_map),
-	      sum_nbit = 0, nbit, *addr, *buffer = pdo->buffer;
+    uint8_t   num = 0, 
+	      **addr  = pdo->map_addr_obj, 
+	      *buffer = pdo->buffer;
     
-    if(!subindex) return;
-    if(subindex > MAX_MAP_DATA) subindex = MAX_MAP_DATA;
+    while(num < (pdo->n_byte_pdo_map)){ 
+	    
+	    *(buffer+num) = **(addr+num);
+	    num++;
     
-        while(num < subindex){
-	 
-	 nbit =(pdo->map + num)->info.nbit; 
-	 sum_nbit += nbit;   
-         if(sum_nbit > MAX_MAP_NBIT) break;
-	 addr =(uint8_t*)(*pdo->map_addr_obj + num);
-         if(!addr) break;
-	 buffer = copy_wdata_answer (buffer,addr,nbit);// object -> buffer
-         num++;
-	 
-    };   
+    }   
 };
 
 void copy_txPDO_array_to_message(CanOpen_Msg* msg,struct PDO_Object* pdo){
@@ -811,10 +842,7 @@ uint8_t check_sdo_command_for_reading(CanOpen_Msg *msg,uint8_t nbit){
 	
 /*------------ function Object proccesing -------*/
 
-#define SDO_request       0
-#define MAP_txpdo_request 1
-#define MAP_rxpdo_request 2
-#define MAP_info          3
+
 
 void single_object(struct data_object *obj){
    
@@ -866,7 +894,7 @@ void single_object(struct data_object *obj){
                       msg->frame_sdo.cmd = RESPONSE_ERROR;
                       msg->frame_sdo.dlc = 0x08;}
 	    
-          copy_data(wdata,rdata,nbit);
+          copy_data_sdo(wdata,rdata,nbit);
 	  
           break;         
           
@@ -940,7 +968,7 @@ void one_type_array_object(struct data_object *obj){
 				 msg->frame_sdo.dlc = 8;
 				 break;         
                        default: if(array->sub_index < (msg->frame_sdo.subindex))
-	                        error = ERROR_SUB_INDEX;break;
+							error = ERROR_SUB_INDEX;break;
 			        rdata = wdata;
 				wdata = (uint8_t*)array->array;
 				wdata = wdata + ((nbit>>3)*((msg->frame_sdo.subindex)-1));
@@ -951,7 +979,7 @@ void one_type_array_object(struct data_object *obj){
                       nbit = 0x20;
                       msg->frame_sdo.cmd = RESPONSE_ERROR;
                       msg->frame_sdo.dlc = 0x08;}
-          copy_data(wdata,rdata,nbit);            
+          copy_data_sdo(wdata,rdata,nbit);            
           break;         
          
         /*not a quick method read write mapping -> func_data 
@@ -1222,7 +1250,7 @@ void pdo_object(struct data_object *obj){
 	  }else error = ERROR_NO_SAVE;
 	  
           if(!error){msg->frame_sdo.cmd = OK_SAVE;
-                     msg->frame_sdo.dlc = 4;}
+                     msg->frame_sdo.dlc = 4; nbit=0;}
         }
 	
           if(error){rdata = (uint8_t*)&error_msg[error];
@@ -1401,7 +1429,83 @@ void rw_sdo_object(struct data_object *obj){
 	
 	
 	
-	
+/* OLD FUNCTION
+ 
+ 
+ void map_object_check(struct PDO_Object* pdo){
+   
+   if(!pdo)return;
+   
+   uint8_t sum_nbit = 0, subindex = 0,*subindex_map = pdo->sub_index_map;
+   union map_data* map = (union map_data* )pdo->map;
+   
+   if(*subindex_map > MAX_MAP_DATA) *subindex_map = MAX_MAP_DATA;
+
+   while(subindex < *subindex_map){
+       
+       if(!(map + subindex)->info.index||
+          !(map + subindex)->info.nbit ||
+          !*((pdo->map_addr_obj)+ subindex)) break;
+       
+       sum_nbit += (map + subindex)->info.nbit;
+       if(sum_nbit > MAX_MAP_NBIT) break; 
+       subindex ++;
+   };
+   *(pdo->n_byte_pdo_map) = sum_nbit >>3;
+   *subindex_map = subindex;
+   
+};
+ 
+ void process_the_RxPDO_message(struct PDO_Object* pdo){
+    
+    if(!pdo)return;
+    
+    uint8_t   num = 0, subindex = *(pdo->sub_index_map),
+	      sum_nbit = 0, nbit, *addr, *buffer= pdo->buffer;
+              
+    if(!subindex) return;
+    if(subindex > MAX_MAP_DATA) subindex = MAX_MAP_DATA;
+    
+    while(num < subindex){
+	 
+	 nbit =((pdo->map)+num)->info.nbit; 
+	 sum_nbit += nbit;   
+         if(sum_nbit > MAX_MAP_NBIT) break;
+	 addr = (uint8_t*)(*pdo->map_addr_obj + num);
+         if(!addr) break;
+	 buffer = copy_rdata_answer (addr,buffer,nbit); // object <- buffer
+         num++;
+	 
+    };    
+};
+ void process_the_TxPDO_message(struct PDO_Object* pdo){
+    
+    if(!pdo)return;
+    
+    uint8_t   num = 0, subindex = *(pdo->sub_index_map),
+	      sum_nbit = 0, nbit, *addr, *buffer = pdo->buffer;
+    
+    if(!subindex) return;
+    if(subindex > MAX_MAP_DATA) subindex = MAX_MAP_DATA;
+    
+        while(num < subindex){
+	 
+	 nbit =(pdo->map + num)->info.nbit; 
+	 sum_nbit += nbit;   
+         if(sum_nbit > MAX_MAP_NBIT) break;
+	 addr =(uint8_t*)(*pdo->map_addr_obj + num);
+         if(!addr) break;
+	 buffer = copy_wdata_answer (buffer,addr,nbit);// object -> buffer
+         num++;
+	 
+    };   
+};
+ 
+ */	
+
+
+
+
 	
 	
 	
