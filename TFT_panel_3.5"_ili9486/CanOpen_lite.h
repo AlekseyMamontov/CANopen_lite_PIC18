@@ -861,12 +861,15 @@ void single_object(struct data_object *obj){
             uint8_t error = ERROR_SDO_SERVER;
             wdata = &msg->can_frame.data4;//block data (4byte) uint8_t*
 	    
-            
+ /*Read OD_object  msg <- addr_object*/   
+	    
             if(msg->frame_sdo.cmd == READ_REQUEST){//read
 		    
                 if(obj->attribute&RO){		
+			
                   error = check_sdo_command_for_reading(msg,obj->nbit); 
-                  if(!error){ 
+                  
+		  if(!error){ 
                     switch(msg->frame_sdo.subindex){    
                         case 0: rdata =(uint8_t*) obj->data_object;
 				nbit = obj->nbit;
@@ -878,23 +881,25 @@ void single_object(struct data_object *obj){
                         default:error = ERROR_SUB_INDEX;break;}
 		    };
 		  }else error = ERROR_NO_READ;	
-		 
-            }else if((msg->frame_sdo.cmd&0xE0) == WRITE_REQUEST){ //write 
 		
+/*Write_OD_object   msg -> addr_object*/	
+		
+            }else if((msg->frame_sdo.cmd&0xE0) == WRITE_REQUEST){ 
+	
 		 if(obj->attribute&WO){ 
-		 error = check_sdo_command_for_writing(msg,obj->nbit);
+			 
+		   error = check_sdo_command_for_writing(msg,obj->nbit);//ok save
 		   
 		   if(!error){  
 		      if(msg->frame_sdo.subindex == 0){
 			  rdata = wdata;
                           wdata = (uint8_t*)obj->data_object;
 			  nbit = obj->nbit;
-			  msg->frame_sdo.cmd = OK_SAVE;
-			  msg->frame_sdo.dlc = 4;	  
-		     }else{error = ERROR_SUB_INDEX;}
-		   }
-		 }else error = ERROR_NO_SAVE;
-            } 
+			  
+		     }else error = ERROR_SUB_INDEX;}
+		}else error = ERROR_NO_SAVE;
+           }
+	    
            if(error){ rdata = (uint8_t*)&error_msg[error];
                       nbit = 0x20;
                       msg->frame_sdo.cmd = RESPONSE_ERROR;
@@ -909,7 +914,9 @@ void single_object(struct data_object *obj){
 	  
        case MAP_info:
 		
-            obj->rw_object = obj->sub_index?NULL: obj->data_object;break;
+            obj->rw_object = obj->sub_index?NULL: obj->data_object;
+	    
+	  break;
         
      default:break;}
     
@@ -919,7 +926,7 @@ void one_type_array_object(struct data_object *obj){
 	
     if(!obj)return;
 	
-    uint8_t nbit,*wdata,*rdata;
+    uint8_t *wdata,*rdata,nbit;
     CanOpen_Msg* msg;
     
     struct one_type_array* array =(struct one_type_array*) obj->data_object;
@@ -933,13 +940,17 @@ void one_type_array_object(struct data_object *obj){
             if(!msg)return;
             uint8_t error = ERROR_SDO_SERVER;
             wdata =(uint8_t*) &msg->frame_sdo.data;
-   
-            if(msg->frame_sdo.cmd == READ_REQUEST){  //read
+	    
+ /*Read OD_object  msg <- addr_object*/ 
+	    
+            if(msg->frame_sdo.cmd == READ_REQUEST){ 
 		    
                 if(obj->attribute&RO){
-                error = check_sdo_command_for_reading(msg,obj->nbit);
+			
+                  error = check_sdo_command_for_reading(msg,obj->nbit);
 		
-                if(!error){ 
+                  if(!error){ 
+			  
                     switch(msg->frame_sdo.subindex){
                         case 0:rdata = &array->sub_index;nbit  = 0x08;
 			       msg->frame_sdo.cmd = RESPONSE_1b;
@@ -950,17 +961,20 @@ void one_type_array_object(struct data_object *obj){
 			          msg->frame_sdo.dlc = 8;
 			       break;         
                         default: if(array->sub_index < (msg->frame_sdo.subindex))
-				     error = ERROR_SUB_INDEX;break;
+							error = ERROR_SUB_INDEX;break;
 				 nbit = obj->nbit;
 			         rdata = (uint8_t*)array->array;
 			         rdata = rdata + ((nbit>>3)*((msg->frame_sdo.subindex)-1));
-			         break;}}
+			         break;}
+		 };
+               }else error = ERROR_NO_READ;
 		
-               }else error = ERROR_NO_READ;	
-        
+/*Write_OD_object   msg -> addr_object*/			
+		     
            }else if((msg->frame_sdo.cmd&0xE0) == WRITE_REQUEST){   //write
 		    
 		if(obj->attribute&WO){
+			
 		error = check_sdo_command_for_writing(msg,obj->nbit);
 		
 		  if(!error){ 
@@ -1125,6 +1139,8 @@ void pdo_object(struct data_object *obj){
         if(!msg)break;
 	wdata = (uint8_t*)&msg->frame_sdo->data;
 	
+/*Read OD_object  msg <- addr_object*/ 	
+	
         if(msg->frame_sdo.cmd == READ_REQUEST){	 //read
 		
           if(obj->attribute&RO){    
@@ -1143,27 +1159,30 @@ void pdo_object(struct data_object *obj){
                 default: error = ERROR_SUB_INDEX;break;}}    
           }else error = ERROR_NO_READ;
 	    
-	if(!error)error = check_sdo_command_for_reading(msg,nbit);  
+	if(!error)error = check_sdo_command_for_reading(msg,nbit); 
+	  
+/*Write_OD_object   msg -> addr_object*/		  
 	    
        }else if((msg->frame_sdo.cmd&0xE0) == WRITE_REQUEST){ // write
- 
+	  
+	  rdata = wdata;
+	  
 	  if(obj->attribute&WO){
           error = 0;      
           if(msg->frame_sdo.dlc < 5) error = ERROR_SMALL_DATA_OBJ;
           if(!pdo || pdo->map) error = ERROR_SYSTEM;
-          if(!error){    
-	     
-		  
-            //uint8_t lock = pdo->cob_id&PDO_DISABLED?1:0;
+          if(!error){    	  
+	      
+	//uint8_t lock = pdo->cob_id&PDO_DISABLED?1:0;
             switch(msg->frame_sdo.subindex){
                 
         // sub-index
                 
-            case 0: error = ERROR_NO_SAVE;break;
+             case 0: error = ERROR_NO_SAVE;break;
             
         // sub-id 32bit
 	    
-            case 1:
+             case 1:
                 
               if(msg->frame_sdo.cmd != GET_4b){error = ERROR_SDO_SERVER;break;}  
               if(msg->frame_sdo.dlc < 8){error = ERROR_SMALL_DATA_OBJ;break;}
@@ -1178,9 +1197,7 @@ void pdo_object(struct data_object *obj){
                      *pdo->cob_id = msg->frame_sdo.data.data32&0x800007FF;
                     }else{error = ERROR_NO_SAVE;break;}
                  };
-		 
-		 
-                  
+		      
               }else{ // lock == 0 ? 
               
                   if((*pdo->cob_id&0x7ff)==(msg->frame_sdo.data.data32&0x7FF)){
@@ -1194,17 +1211,18 @@ void pdo_object(struct data_object *obj){
                break;
                
         // Transmission_type 8bit
+	       
             case 2: 
                 
               if(!checkLock){error = ERROR_NO_SAVE;break;} 
               if(msg->frame_sdo.cmd != GET_1b){error = ERROR_SDO_SERVER;break;}  
-                 if(msg->frame_sdo.dlc < 5){error = ERROR_SMALL_DATA_OBJ;break;}
+              if(msg->frame_sdo.dlc < 5){error = ERROR_SMALL_DATA_OBJ;break;}
             
-                 *pdo->Transmission_type = msg->frame_sdo.data.data8;
+                 wdata = pdo->Transmission_type; nbit = 0x08;
                  
-               setInit_pdo;
+              setInit_pdo;
 
-               break;
+              break;
                 
         // Inhibit_time; 16bit
             case 3: 
@@ -1213,7 +1231,7 @@ void pdo_object(struct data_object *obj){
                 if(msg->frame_sdo.cmd != GET_2b){error = ERROR_SDO_SERVER;break;} 
                 if(msg->frame_sdo.dlc < 6){error = ERROR_SMALL_DATA_OBJ;break;} 
               
-                  *pdo->Inhibit_time = msg->frame_sdo.data.data16;                 
+                  wdata = pdo->Inhibit_time; nbit = 0x10;                 
             
                 break;
                 
@@ -1224,7 +1242,7 @@ void pdo_object(struct data_object *obj){
                 if(msg->frame_sdo.cmd != GET_2b){error = ERROR_SDO_SERVER;break;} 
                 if(msg->frame_sdo.dlc < 6){error = ERROR_SMALL_DATA_OBJ;break;}
               
-                  *pdo->Event_timer = msg->frame_sdo.data.data16;                
+                  wdata = pdo->Event_timer; nbit = 0x10;                
                                  
                  break;
                  
@@ -1233,8 +1251,9 @@ void pdo_object(struct data_object *obj){
 	  }else error = ERROR_NO_SAVE;
 	  
           if(!error){msg->frame_sdo.cmd = OK_SAVE;
-                     msg->frame_sdo.dlc = 4; nbit=0;}
-        }
+                     msg->frame_sdo.dlc = 4; nbit=0;}else{wdata=rdata;}
+	  
+        } else error = ERROR_SDO_SERVER;
 	
           if(error){rdata = (uint8_t*)&error_msg[error];
                     nbit = 0x20;
