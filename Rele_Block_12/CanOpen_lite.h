@@ -240,7 +240,7 @@ struct PDO_Object{
     uint8_t*    n_byte_pdo_map;
 
     struct
-    OD_Object*	OD_0bject_list; // 
+    OD_Object*	OD_Object_list; // 
     
     // Buffer
     
@@ -1126,7 +1126,7 @@ void pdo_object(struct data_object *obj){
     
   if(!obj)return;
   
-  uint8_t error = ERROR_SDO_SERVER, nbit = 0x20, *wdata,*rdata;
+  uint8_t error = 0, nbit = 0x20, *wdata,*rdata;
   CanOpen_Msg *msg;  
   struct PDO_Object *pdo = (struct PDO_Object *)obj->data_object;
     
@@ -1144,7 +1144,6 @@ void pdo_object(struct data_object *obj){
         if(msg->frame_sdo.cmd == READ_REQUEST){	 //read
 		
           if(obj->attribute&RO){    
-            error = 0;
             if(msg->frame_sdo.dlc < 4) error = ERROR_SMALL_DATA_OBJ;
             if(!pdo) error = ERROR_SYSTEM;                
             if(!error){
@@ -1167,8 +1166,7 @@ void pdo_object(struct data_object *obj){
 	  
 	  rdata = wdata;
 	  
-	  if(obj->attribute&WO){
-          error = 0;      
+	  if(obj->attribute&WO){     
           if(msg->frame_sdo.dlc < 5) error = ERROR_SMALL_DATA_OBJ;
           if(!pdo || pdo->map) error = ERROR_SYSTEM;
           if(!error){    	  
@@ -1187,28 +1185,33 @@ void pdo_object(struct data_object *obj){
               if(msg->frame_sdo.cmd != GET_4b){error = ERROR_SDO_SERVER;break;}  
               if(msg->frame_sdo.dlc < 8){error = ERROR_SMALL_DATA_OBJ;break;}
               
-             
+	      wdata = pdo->cob_id;
+	      nbit = 0x20;
+	      
+	      // correct id  cob_id&0x80000fff
+	      *rdata	&=0xff;
+	      *(rdata+1)&=0x0f;
+	      *(rdata+2)&=0x00;
+	      *(rdata+3)&=0x80;
+	      
               if(checkLock){ // lock == 1? 
-		      
-                  if(checkRxTx){ // Tx    
-                     *pdo->cob_id = msg->frame_sdo.data.data32&0x800007FF;
-                 }else{	// Rx   
-                    if((*(pdo->cob_id)&0x7ff)==(msg->frame_sdo.data.data32&0x7FF)){ 
-                     *pdo->cob_id = msg->frame_sdo.data.data32&0x800007FF;
-                    }else{error = ERROR_NO_SAVE;break;}
-                 };
-		      
+                 
+	        if(!checkRxTx){	//Rx ?
+		     
+	           if(*rdata != *wdata ||
+		      *rdata+1 != *wdata+1){error = ERROR_NO_SAVE;break;}
+		}
+
               }else{ // lock == 0 ? 
               
-                  if((*pdo->cob_id&0x7ff)==(msg->frame_sdo.data.data32&0x7FF)){
-                     *pdo->cob_id = msg->frame_sdo.data.data32&0x800007FF;
-                 }else{error = ERROR_NO_SAVE;break;};
-              
-              };
+		   if(*rdata != *wdata ||
+		      *rdata+1 != *wdata+1){error = ERROR_NO_SAVE;break;}
+		   
+	      };
            
-               setInit_pdo;
+              setInit_pdo;
         
-               break;
+              break;
                
         // Transmission_type 8bit
 	       
@@ -1219,8 +1222,7 @@ void pdo_object(struct data_object *obj){
               if(msg->frame_sdo.dlc < 5){error = ERROR_SMALL_DATA_OBJ;break;}
             
                  wdata = pdo->Transmission_type; nbit = 0x08;
-                 
-              setInit_pdo;
+                 setInit_pdo;
 
               break;
                 
@@ -1231,9 +1233,10 @@ void pdo_object(struct data_object *obj){
                 if(msg->frame_sdo.cmd != GET_2b){error = ERROR_SDO_SERVER;break;} 
                 if(msg->frame_sdo.dlc < 6){error = ERROR_SMALL_DATA_OBJ;break;} 
               
-                  wdata = pdo->Inhibit_time; nbit = 0x10;                 
-            
-                break;
+                  wdata = pdo->Inhibit_time; nbit = 0x10;
+		  setInit_pdo;
+	     
+             break;
                 
         // Event_timer 16bit
             case 5:  
@@ -1242,9 +1245,10 @@ void pdo_object(struct data_object *obj){
                 if(msg->frame_sdo.cmd != GET_2b){error = ERROR_SDO_SERVER;break;} 
                 if(msg->frame_sdo.dlc < 6){error = ERROR_SMALL_DATA_OBJ;break;}
               
-                  wdata = pdo->Event_timer; nbit = 0x10;                
+                  wdata = pdo->Event_timer; nbit = 0x10;
+		  setInit_pdo;
                                  
-                 break;
+             break;
                  
             default:error = ERROR_SUB_INDEX;break;}}
 	  
@@ -1253,15 +1257,16 @@ void pdo_object(struct data_object *obj){
           if(!error){msg->frame_sdo.cmd = OK_SAVE;
                      msg->frame_sdo.dlc = 4; nbit=0;}else{wdata=rdata;}
 	  
-        } else error = ERROR_SDO_SERVER;
+        }else error = ERROR_SDO_SERVER;
 	
           if(error){rdata = (uint8_t*)&error_msg[error];
                     nbit = 0x20;
                     msg->frame_sdo.cmd = RESPONSE_ERROR;
                     msg->frame_sdo.dlc = 0x08;}
 	    
-           copy_data_sdo(wdata,rdata,nbit);        
-           break; 
+         copy_data_sdo(wdata,rdata,nbit);        
+        
+	 break; 
            
     case MAP_info:
         
