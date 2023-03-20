@@ -505,7 +505,7 @@ void build_map_objects(struct PDO_Object* pdo){
 	map = (union map_data* )(pdo->map)+sub_i;
 	if(map->info.nbit == 0 || map->info.index == 0) break;
 	
-	obj = OD_search_index(map->info.index,pdo->OD_0bject_list);
+	obj = OD_search_index(map->info.index,pdo->OD_Object_list);
         if(obj == NULL) break;
 	
 	d_obj.request_type = MAP_info;
@@ -1135,7 +1135,7 @@ void pdo_object(struct data_object *obj){
 		
     case SDO_request:
 
-        msg = obj->rw_object;
+        msg = (CanOpen_Msg *)obj->rw_object;
         if(!msg)break;
 	wdata = (uint8_t*)&msg->frame_sdo->data;
 	
@@ -1305,7 +1305,7 @@ void map_object(struct data_object *obj){
     
   if(!obj)return;
   CanOpen_Msg *msg;
-  uint8_t error = ERROR_SDO_SERVER,*wdata,*rdata;
+  uint8_t nbit, error = 0,*wdata,*rdata;
   struct PDO_Object *pdo = (struct PDO_object *)obj->data_object;
 
   switch(obj->request_type){		
@@ -1314,91 +1314,69 @@ void map_object(struct data_object *obj){
         
       msg = (CanOpen_Msg *)obj->rw_object;
       if(!msg)return;
-   
-// read      
+      wdata = (uint8_t*)&msg->frame_sdo->data;
+      
+/*Read OD_object  msg <- addr_object*/ 	     
+      
       if(msg->frame_sdo.cmd == READ_REQUEST){
 	      
         if(obj->attribute&RO){
-           error = 0;
+
            if(msg->frame_sdo.subindex > MAX_MAP_DATA) error = ERROR_SUB_INDEX;
            if(msg->frame_sdo.dlc < 4) error = ERROR_SMALL_DATA_OBJ;
            if(!pdo) error = ERROR_SYSTEM;         
            if(!error){ 
 		   
               switch(msg->frame_sdo.subindex){
-                case 0:  msg->frame_sdo.data.data8  = *pdo->sub_index_map;
-		
-		
-		
-                         SDO_ANSWER_1b;break;
-                case 0xFF: msg->frame_sdo.data.data32 = (PDO_MAPPING << 8)| OD_DEFSTRUCT;
-                           SDO_ANSWER_4b break;       
-                default: msg->frame_sdo.data.data32 = 
-                         pdo->pdo_map->map[(msg->frame_sdo.subindex)-1].data32;
-                         SDO_ANSWER_4b ; break;}
-	   }        
+                case 0: rdata= pdo->sub_index_map;nbit=0x08;break;
+                case SUB_INDEX_FF:rdata = &obj->sub_index_ff;nbit = 0x20;break;       
+                default: rdata = pdo->map +((msg->frame_sdo.subindex)-1);
+                         nbit=0x20;break;}
+	  }        
        }else error = ERROR_NO_READ;
-// write               
-    }else if((msg->frame_sdo.cmd&0xE0) == WRITE_REQUEST){ 
-       if(obj->attribute&WO){
-         error = 0; 
-         if(msg->frame_sdo.subindex >MAX_MAP_DATA) error = ERROR_SUB_INDEX;
-         if(msg->frame_sdo.dlc < 5) error = ERROR_SMALL_DATA_OBJ; 
-         if(!pdo) error = ERROR_SYSTEM;  
-         if(!error){
-            if(pdo->cond.flag.lock){  
-              switch(msg->frame_sdo.subindex){
+	
+/*Write_OD_object   msg -> addr_object*/	           
+	
+    }else if((msg->frame_sdo.cmd&0xE0) == WRITE_REQUEST){
+	    
+        if(obj->attribute&WO){
+	       
+	   rdata = wdata;	
+		
+           if(msg->frame_sdo.subindex >MAX_MAP_DATA) error = ERROR_SUB_INDEX;
+           if(msg->frame_sdo.dlc < 5) error = ERROR_SMALL_DATA_OBJ; 
+           if(!pdo) error = ERROR_SYSTEM;
+	   if(!checkLock) error = ERROR_NO_SAVE;
+           if(!error){
+		    
+               switch(msg->frame_sdo.subindex){  
                   
-              case 0:
-                 if(msg->frame_sdo.cmd != GET_1b){error = ERROR_SDO_SERVER;break;}              
-                 pdo->pdo_map->sub_index = msg->frame_sdo.data.data8<=MAX_MAP_DATA?
-                 msg->frame_sdo.data.data8:MAX_MAP_DATA;
-                 pdo->func->check_map(pdo); //test->map
-                 break;
-                 
-              default: 
-                 if(msg->frame_sdo.dlc < 8){error = ERROR_SMALL_DATA_OBJ;break;};
-                 if(msg->frame_sdo.cmd != GET_4b){error = ERROR_SDO_SERVER; break;}
-                 if(!(msg->frame_sdo.data.map.nbit)){error = ERROR_SMALL_DATA_OBJ;break;}
-          
-                   struct OD_object *tab;     
-                   tab = OD_search_map_index(msg,pdo->pdo_map->node_map);
-                   if(!tab || !tab->data_func || !tab->data){
-                                            error = ERROR_NO_OBJECT;break;}
-                   
-                   struct data_object  info;
-                   info.sub_index = msg->frame_sdo.data.map.sub_index;
-                   info.data_object = tab->data;
-                   info.request_type = MAP_info;
-		   
-		   //tab->data_func(&info);
-		   
-                   if(info.rw_object == NULL){error = ERROR_SUB_INDEX;break;}
-                   if(!(info.attribute&NO_MAP)){ error = ERROR_OBJECT_PDO;break;}
-                     
-                   if(pdo->cond.flag.rx_tx){ //tx = 1
-                        if(!(info.attribute&RO)){error = ERROR_OBJECT_PDO;break;}
-                  }else if(!(info.attribute&WO)){error = ERROR_OBJECT_PDO;break;}
-                      
-                   if(info.nbit != msg->frame_sdo.data.map.nbit){
-                                          error = ERROR_LEN_OBJECT;break;}    
-                   
-		   pdo->pdo_map->map[(msg->frame_sdo.subindex)-1].data32=
-                       msg->frame_sdo.data.data32 ;
-		   
-                   pdo->pdo_map->quick_mapping[(msg->frame_sdo.subindex)-1] = 
-                       info.rw_object;
-                   
-                   pdo->func->check_map(pdo); 
-                   
-                   SDO_SAVE_OK
-                   
-                break;}  
-              
-        }else{error = ERROR_NO_SAVE;};
-      }  
-   }}
-    if(error)ERR_MSG(error);               
+	         case 0: if(msg->frame_sdo.cmd != GET_1b){error = ERROR_SDO_SERVER;break;}              
+			 if(*rdata > MAX_MAP_DATA) *rdata = MAX_MAP_DATA;
+			 wdata = pdo->sub_index_map;
+			 break;
+                 default: 
+			if(msg->frame_sdo.dlc < 8){error = ERROR_SMALL_DATA_OBJ;break;};
+			if(msg->frame_sdo.cmd != GET_4b){error = ERROR_SDO_SERVER; break;}
+			if(*rdata == 0){error = ERROR_SMALL_DATA_OBJ;break;} // check nbit==0?
+			if(*rdata > 0x40){error = ERROR_BIG_DATA_OBJ;break;}
+			
+			
+			
+			
+			break;}
+	  }  
+       }
+		
+    }else error = ERROR_SDO_SERVER;
+      
+      
+      
+      
+    if(error)ERR_MSG(error);
+      
+      
+      
     break;       
 
     case MAP_info:
