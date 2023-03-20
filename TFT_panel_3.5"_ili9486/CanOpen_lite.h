@@ -1164,9 +1164,12 @@ void pdo_object(struct data_object *obj){
 	    
        }else if((msg->frame_sdo.cmd&0xE0) == WRITE_REQUEST){ // write
 	  
-	  rdata = wdata;
 	  
-	  if(obj->attribute&WO){     
+	  
+	if(obj->attribute&WO){
+		  
+          rdata = wdata;  
+		  
           if(msg->frame_sdo.dlc < 5) error = ERROR_SMALL_DATA_OBJ;
           if(!pdo || pdo->map) error = ERROR_SYSTEM;
           if(!error){    	  
@@ -1252,11 +1255,10 @@ void pdo_object(struct data_object *obj){
                  
             default:error = ERROR_SUB_INDEX;break;}}
 	  
-	  }else error = ERROR_NO_SAVE;
+	    if(!error){msg->frame_sdo.cmd = OK_SAVE;
+            msg->frame_sdo.dlc = 4; nbit=0;}else{wdata=rdata;}
 	  
-          if(!error){msg->frame_sdo.cmd = OK_SAVE;
-                     msg->frame_sdo.dlc = 4; nbit=0;}else{wdata=rdata;}
-	  
+	  }else error = ERROR_NO_SAVE;	  
         }else error = ERROR_SDO_SERVER;
 	
           if(error){rdata = (uint8_t*)&error_msg[error];
@@ -1360,21 +1362,25 @@ void map_object(struct data_object *obj){
 			if(msg->frame_sdo.cmd != GET_4b){error = ERROR_SDO_SERVER; break;}
 			if(*rdata == 0){error = ERROR_SMALL_DATA_OBJ;break;} // check nbit==0?
 			if(*rdata > 0x40){error = ERROR_BIG_DATA_OBJ;break;}
-			
-			
-			
-			
+			wdata = pdo->map +(pdo->sub_index_map-1);
 			break;}
-	  }  
-       }
+	  }
+	   
+	  if(!error){msg->frame_sdo.cmd = OK_SAVE;msg->frame_sdo.dlc = 4; nbit=0;
+	 }else{wdata=rdata;} 
+	      
+       }else error = ERROR_NO_SAVE;
 		
     }else error = ERROR_SDO_SERVER;
       
-      
-      
-      
-    if(error)ERR_MSG(error);
-      
+    if(error){rdata = (uint8_t*)&error_msg[error];
+              nbit = 0x20;
+              msg->frame_sdo.cmd = RESPONSE_ERROR;
+              msg->frame_sdo.dlc = 0x08;}
+	    
+         copy_data_sdo(wdata,rdata,nbit);
+    if(error) return; 
+	 pdo->check_map (pdo);
       
       
     break;       
