@@ -1504,7 +1504,7 @@ void TIME_message_processing(struct _CanOpen *node){
 
 void rxPDO_message_processing(uint8_t code,struct _CanOpen *node){
     
-    if(*node->mode != OPERATIONAL) return;
+    if(*(node->mode) != OPERATIONAL) return;
     if(code >= MAX_PDO_OBJECT)	return;
     struct PDO_Object* pdo = *(node->pdo)+code;
     if((checkRxTx) || (checkLock))return; // txPDO? -> return;
@@ -1592,11 +1592,11 @@ void NODE_processing_pdo_objects(struct _CanOpen* node){
 	
     struct PDO_Object* pdo;	
 
-    if(*node->mode != OPERATIONAL) return;
+    if(*(node->mode) != OPERATIONAL) return;
     
     for(uint8_t i=0;i<MAX_PDO_OBJECT;i++){
        
-	pdo = *node->pdo+i;    
+	pdo = *(node->pdo)+i;    
 	    
         if(pdo != NULL){
 	       
