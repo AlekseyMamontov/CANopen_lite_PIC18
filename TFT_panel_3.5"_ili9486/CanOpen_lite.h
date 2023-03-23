@@ -108,7 +108,6 @@ struct Data_Object{
     
 };
 
-
 struct OD_Object{
     
     uint16_t index;
@@ -137,7 +136,8 @@ struct string_object{
     uint8_t*    text;
     uint8_t*    text_buffer;
     uint8_t     n_byte;; 
-    uint8_t     cond_sdo;   
+    uint8_t     cond_sdo;
+    
 };
 
 
@@ -203,8 +203,8 @@ due to the fact that the XC8 is buggy */
 #define clrInit_pdo     *(pdo->cond) &=0xDF
 #define checkInit_pdo	*(pdo->cond) & 0x20
 
-#define setRx_Tx        *(pdo->cond) |=0x40
-#define clrRX_TX	*(pdo->cond) &=0xBF
+#define setTx		*(pdo->cond) |=0x40
+#define setRX		*(pdo->cond) &=0xBF
 #define checkRxTx	*(pdo->cond) & 0x40
 
 #define setLock		*(pdo->cond) |=0x80
@@ -247,7 +247,7 @@ struct PDO_Object{
     // function
     
     void   (*init_pdo)(struct PDO_Object* pdo);
-    void   (*check_map)(struct PDO_Object* pdo);
+    void   (*build_map)(struct PDO_Object* pdo);
     void   (*process_rxpdo)(struct PDO_Object *pdo);
     void   (*process_txpdo)(struct PDO_Object *pdo);
      
@@ -334,6 +334,7 @@ struct _CanOpen{
 
     uint16_t*     pdo_timers;  // !! -not quite right
     uint8_t*     n_obj_timer;
+    
 };
 
 /* --------------- ERROR ----------------*/
@@ -406,7 +407,8 @@ inline struct OD_Object*
 	index |= msg->frame_sdo.data2;
 return  OD_search_index(index,tab);}
 	
-	
+/* copy block  */
+
 void copy_data (uint8_t* wdata, uint8_t* rdata, uint8_t nbit){
     
     if(!wdata || !rdata)return;
@@ -453,6 +455,8 @@ inline void copy_xPDO(uint8_t* wdata,uint8_t* rdata,uint8_t dlc){
     
 };
 
+
+/* compare block  */
 uint8_t compare_bytes(uint8_t* wdata, uint8_t* rdata, uint8_t nbit){
 	
 	if(!wdata || !rdata)  return 0;
@@ -498,7 +502,7 @@ void build_map_objects(struct PDO_Object* pdo){
     
      while(sub_i < subindex_map){
 	         
-	map = (union map_data* )(pdo->map)+sub_i;
+	map = (union map_data* )pdo->map + sub_i;
 	if(map->info.nbit == 0 || map->info.index == 0) break;
 	
 	obj = OD_search_index(map->info.index,pdo->OD_Object_list);
@@ -614,9 +618,9 @@ void init_xPDO(struct PDO_Object* pdo){
     
     if(*pdo->cob_id&PDO_DISABLED)return;
     
-    if(pdo->check_map == NULL)return;
+    if(pdo->build_map == NULL)return;
     
-    pdo->check_map(pdo);
+    pdo->build_map(pdo);
     if(*pdo->sub_index_map == 0)return;
     
     switch(*pdo->Transmission_type){
@@ -638,7 +642,7 @@ void pdo_object_type(struct PDO_Object *pdo){
     if(!pdo)return;
     
     if(checkLock) return;
-    if(checkInit_pdo && pdo->init_pdo) pdo->init_pdo(pdo);
+    if((checkInit_pdo) && pdo->init_pdo) pdo->init_pdo(pdo);
     
     switch(*pdo->Transmission_type){
  
@@ -790,22 +794,6 @@ void pdo_object_type(struct PDO_Object *pdo){
 #define WRITE_REQUEST 0x20
 
 #define SUB_INDEX_FF  0x0FF 
-/*
-#define SDO_ANSWER_1b   msg->frame_sdo.cmd = RESPONSE_1b;\
-                        msg->frame_sdo.dlc = 5;\
-
-#define SDO_ANSWER_2b   msg->frame_sdo.cmd = RESPONSE_2b;\
-                        msg->frame_sdo.dlc = 6;\
-                         
-#define SDO_ANSWER_3b   msg->frame_sdo.cmd = RESPONSE_3b;\
-                        msg->frame_sdo.dlc = 7;\
-                         
-#define SDO_ANSWER_4b   msg->frame_sdo.cmd = RESPONSE_4b;\
-                        msg->frame_sdo.dlc = 8;\
-
-#define SDO_SAVE_OK     msg->frame_sdo.cmd = OK_SAVE;\
-                        msg->frame_sdo.dlc = 4;\
-*/
 
 
 uint8_t check_sdo_command_for_writing(CanOpen_Msg *msg,uint8_t nbit){
@@ -840,7 +828,6 @@ uint8_t check_sdo_command_for_reading(CanOpen_Msg *msg,uint8_t nbit){
 /*------------ function Object proccesing -------*/
 
 
-
 void single_object(struct Data_Object *obj){
    
     uint8_t  nbit,*wdata,*rdata;
@@ -870,7 +857,8 @@ void single_object(struct Data_Object *obj){
                     switch(msg->frame_sdo.subindex){    
                         case 0: rdata =(uint8_t*) obj->data_object;
 				break;              
-                        case 0xFF:rdata = (uint8_t*)&(obj->sub_index_ff);nbit = 0x20;
+                        case 0xFF:rdata = (uint8_t*)&(obj->sub_index_ff);
+				  nbit = 0x20;
 				  msg->frame_sdo.cmd = RESPONSE_4b;
 				  msg->frame_sdo.dlc = 8;
 				break;         
@@ -889,11 +877,12 @@ void single_object(struct Data_Object *obj){
 		   if(!error){  
 		      if(msg->frame_sdo.subindex == 0){
 			  rdata = wdata;
-                          wdata = (uint8_t*)obj->data_object;	  
-			  
+                          wdata = (uint8_t*)obj->data_object;	    
 		     }else error = ERROR_SUB_INDEX;}
+		   
 		}else error = ERROR_NO_SAVE;
-           }
+		 
+           };
 	    
            if(error){ rdata = (uint8_t*)&error_msg[error];
                       nbit = 0x20;
@@ -972,6 +961,7 @@ void one_type_array_object(struct Data_Object *obj){
 		error = check_sdo_command_for_writing(msg,nbit);
 		
 		  if(!error){ 
+			  
 		    switch(msg->frame_sdo.subindex){    
                        case 0:error = ERROR_NO_SAVE;break;              
                        default: if(array->sub_index < (msg->frame_sdo.subindex))
@@ -981,8 +971,11 @@ void one_type_array_object(struct Data_Object *obj){
 				wdata = wdata + ((nbit>>3)*((msg->frame_sdo.subindex)-1));
 
 			break;
-		    }}
-		}else error = ERROR_NO_SAVE;}
+		    }
+		  }
+		}else error = ERROR_NO_SAVE;
+	   
+	   };
 	    
           if(error){  rdata = (uint8_t*)&error_msg[error];
                       nbit = 0x20;
@@ -1194,13 +1187,13 @@ void pdo_object(struct Data_Object *obj){
 	        if(!(checkRxTx)){	//Rx ?
 		     
 	           if(*rdata != *wdata ||
-		      *rdata+1 != *wdata+1){error = ERROR_NO_SAVE;break;}
+		      *(rdata+1) != *(wdata+1)){error = ERROR_NO_SAVE;break;}
 		}
 
               }else{ // lock == 0 ? 
               
 		   if(*rdata != *wdata ||
-		      *rdata+1 != *wdata+1){error = ERROR_NO_SAVE;break;}
+		      *(rdata+1) != *(wdata+1)){error = ERROR_NO_SAVE;break;}
 		   
 	      };
            
@@ -1248,7 +1241,8 @@ void pdo_object(struct Data_Object *obj){
             default:error = ERROR_SUB_INDEX;break;}}
 	  
 	    if(!error){msg->frame_sdo.cmd = OK_SAVE;
-            msg->frame_sdo.dlc = 4; nbit=0;}else{wdata=rdata;}
+		       msg->frame_sdo.dlc = 4;
+		       nbit=0;}else{wdata=rdata;}
 	  
 	  }else error = ERROR_NO_SAVE;	  
         }else error = ERROR_SDO_SERVER;
@@ -1481,11 +1475,11 @@ void SYNC_message_processing(struct _CanOpen *node){
     
      for(uint8_t n=0; n<MAX_PDO_OBJECT; n++){
 	     
-	pdo = *(node->pdo)+n;
+	pdo = *(node->pdo + n);
 	    
       if(  pdo == NULL ) continue;
       if( *pdo->Transmission_type > 240)continue;
-      if( *pdo->counter_sync)(*pdo->counter_sync)--;
+      if( *pdo->counter_sync)*pdo->counter_sync = *(pdo->counter_sync) -1;
       if( *pdo->counter_sync == 0) setSync; 
     
     };   
@@ -1506,7 +1500,7 @@ void rxPDO_message_processing(uint8_t code,struct _CanOpen *node){
     
     if(*(node->mode) != OPERATIONAL) return;
     if(code >= MAX_PDO_OBJECT)	return;
-    struct PDO_Object* pdo = *(node->pdo)+code;
+    struct PDO_Object* pdo = *(node->pdo + code);
     if((checkRxTx) || (checkLock))return; // txPDO? -> return;
  
     
@@ -1518,7 +1512,7 @@ void rxPDO_message_processing(uint8_t code,struct _CanOpen *node){
     
 void rxSDO_message_processing(uint8_t code,struct _CanOpen* node){// client -> server 
     
-    struct SDO_Object* sdo = *node->sdo + code;
+    struct SDO_Object* sdo = *(node->sdo + code);
     struct OD_Object*  tab;
     
     if(*node->mode != OPERATIONAL || *node->mode != PRE_OPERATIONAL) return;
@@ -1596,7 +1590,7 @@ void NODE_processing_pdo_objects(struct _CanOpen* node){
     
     for(uint8_t i=0;i<MAX_PDO_OBJECT;i++){
        
-	pdo = *(node->pdo)+i;    
+	pdo = *(node->pdo + i);    
 	    
         if(pdo != NULL){
 	       
@@ -1625,7 +1619,7 @@ inline void NODE_init_objects_xCanOpen(struct _CanOpen* node){
    
    for(uint8_t i=0;i<MAX_PDO_OBJECT;i++){ 
 	   
-	pdo = *(node->pdo)+i;   
+	pdo = *(node->pdo+i);   
 	   
        if(pdo != NULL) {
 	       
@@ -1637,7 +1631,7 @@ inline void NODE_init_objects_xCanOpen(struct _CanOpen* node){
    
    for(uint8_t i=0;i<MAX_SDO_OBJECT;i++){
 	   
-	   sdo = *node->sdo+i;
+	   sdo = *(node->sdo+i);
 	   
        if(sdo != NULL) {
 	       
