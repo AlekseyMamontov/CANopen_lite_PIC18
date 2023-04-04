@@ -14,8 +14,68 @@
 extern "C" {
 #endif
  
-  
-static struct _CanOpen Triac_rele;    
+/* DS-401*/  
+	
+	
+	
+static struct _CanOpen Triac_rele; 
+
+// pic18 256 byte ram
+
+struct ram_objects_to_eeprom{
+
+// default registr 16 byte	
+	
+ uint32_t N1000_Device_Type;
+ uint32_t N1008_Device_name;
+ uint32_t N1009_Hard_version;
+ uint32_t N100A_Soft_version;
+ 
+ 
+ // rxPDO1 4+1+2+2+1+4x8 = 42 byte
+ 
+ uint32_t rxpdo1_cob_id;
+ uint8_t  rxpdo1_Transmission;
+ uint16_t rxpdo1_inhibit_time;
+ uint16_t rxpdo1_event_timer;
+ uint8_t  rxpdo1_sub_index_map;
+ uint32_t rxpdo1_map_data[MAX_MAP_DATA];
+ //uint8_t* rxpdo_map_addr_obj[MAX_MAP_DATA];
+
+ // txPDO1 4+1+2+2+1+4x8 = 42 byte
+ 
+ uint32_t txpdo1_cob_id;
+ uint8_t  txpdo1_Transmission;
+ uint16_t txpdo1_inhibit_time;
+ uint16_t txpdo1_event_timer;
+ uint8_t  txpdo1_sub_index_map;
+ uint32_t txpdo1_map_data[MAX_MAP_DATA];
+ 
+ 
+ 
+ // 6000 2 byte
+ 
+ uint8_t polary_input[1];  //6002h
+ uint8_t filter_input[1];  //6003h
+ 
+ // 6200  4 byte
+ 
+ uint8_t port_output[2] ;  //6200h
+ uint8_t polary_output[2]; //6202h
+ uint8_t filter_output[2]; //6203h
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ // 106 byte 
+ };
+
+
+
     
 
 uint32_t
@@ -28,30 +88,30 @@ uint32_t
  N100A_Soft_version = 0;
 
 
- /* DS-401*/   
+ 
     
  uint8_t  
         
  // 0 - port B, 1 - port C
         
- output_port[2]    ={0x00,0x00},//6200h
+ port_output[2]    ={0x00,0x00},//6200h
  polary_output[2]  ={0x00,0x00},//6202h
  filter_output[2]  ={0xFF,0x0F},//6208h
         
  // AC220V portA.5 
         
- input_port[1]   = {0},  //6000h
+ port_input[1]   = {0},  //6000h
  polary_input[1] = {0},  //6002h
  filter_input[1] = {0};  //6003h 
 
 
  struct one_type_array
  
- N6200_output = { .sub_index = 2, .array =output_port },
- N6202_output = { .sub_index = 2, .array =polary_output},
- N6208_output = { .sub_index = 2, .array =filter_output},
+ N6200_output = { .sub_index = 2, .array = port_output},
+ N6202_output = { .sub_index = 2, .array = polary_output},
+ N6208_output = { .sub_index = 2, .array = filter_output},
          
- N6000_input = { .sub_index = 1, .array = input_port},
+ N6000_input = { .sub_index = 1, .array = port_input},
  N6002_input = { .sub_index = 1, .array = polary_input},
  N6003_input = { .sub_index = 1, .array = filter_input};        
          
@@ -126,7 +186,7 @@ uint8_t rxpdo1_cond = 0x20,
 	rxpdo1_buffer[MAX_MAP_DATA]={}, 
 	rxpdo1_sub_index_map = 0,
 	rxpdo1_n_byte_pdo_map = 0,
-	*rxpdo_map_addr_obj[MAX_MAP_DATA] = {};
+       *rxpdo_map_addr_obj[MAX_MAP_DATA] = {};
 	
 uint16_t rxpdo1_inhibit_time =0,
 	 rxpdo1_counter_inhibit_time = 0,
@@ -390,7 +450,7 @@ void GPIO_processing(){
     
      uint8_t 
      mask = filter_output[0],       
-     data = (output_port[0]^polary_output[0])&mask;
+     data = (port_output[0]^polary_output[0])&mask;
      
      
      if(data != (LATB&mask)){
@@ -401,7 +461,7 @@ void GPIO_processing(){
      };
      
      mask = filter_output[1]&0x0F;
-     data = (output_port[1]^polary_output[1])&mask;
+     data = (port_output[1]^polary_output[1])&mask;
      
     if(data != (LATC&mask)){
         
@@ -413,9 +473,9 @@ void GPIO_processing(){
      data = AC220V_GetValue()?1:0;
      data = (data^polary_input[0])&filter_input[0];
      
-     if(data != input_port[0]){
+     if(data != port_input[0]){
          
-         input_port[0]= data;
+         port_input[0]= data;
          //tx_pdo_0x180.cond.flag.event_txpdo = 1;
          
      };    
