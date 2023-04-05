@@ -84,7 +84,7 @@ of UNSIGNED8 and therefore not part of the ARRAY data*/
 
 /* code sub_index_FF*/ 
     
-uint32_t subindex_FF[]={
+const uint32_t subindex_FF[]={
 
 #define _OD_NULL 0
 0x00000000,
@@ -243,7 +243,7 @@ due to the fact that the XC8 is buggy */
 #define checkRxTx	*(pdo->cond) & 0x40
 
 #define setLock		*(pdo->cond) |=0x80
-#define clrLock     *(pdo->cond) &=0x7F
+#define clrLock		*(pdo->cond) &=0x7F
 #define checkLock	*(pdo->cond) & 0x80
 
 
@@ -429,13 +429,14 @@ const uint32_t error_msg[]={
 
 struct OD_Object* OD_search_index(uint16_t index, struct OD_Object* tab){   
     while (tab->index < index){tab++;} 
-    return tab = tab->index == index?tab:NULL;};
+    tab = tab->index == index?tab:NULL;
+    return tab;}
 
-inline struct OD_Object* 
+struct OD_Object* 
 	OD_search_msg_index(CanOpen_Msg *msg, struct OD_Object* tab){
 return  OD_search_index((msg->frame_sdo.index),tab);}
 
-inline struct OD_Object* 
+struct OD_Object* 
 	OD_search_map_index(CanOpen_Msg *msg, struct OD_Object* tab){
 	uint16_t index = msg->frame_sdo.data3;
 	index <<= 8;
@@ -483,7 +484,7 @@ uint8_t* copy_wdata_answer (uint8_t* wdata, uint8_t* rdata, uint8_t nbit){
 };	
 	
 
-inline void copy_xPDO(uint8_t* wdata,uint8_t* rdata,uint8_t dlc){
+void copy_xPDO(uint8_t* wdata,uint8_t* rdata,uint8_t dlc){
     
     for(uint8_t i= 0; i< MAX_MAP_DATA ;i++){
         *(wdata+i)= i < dlc?*(rdata+i):0;}
@@ -629,14 +630,14 @@ void copy_txPDO_array_to_message(CanOpen_Msg* msg,struct PDO_Object* pdo){
     
 };
 
-inline void start_Inhibit_time(struct PDO_Object *pdo){
+void start_Inhibit_time(struct PDO_Object *pdo){
 	
 	if(pdo->counter_Inhibit_time && *pdo->Inhibit_time){	    	
 		*pdo->counter_Inhibit_time = *pdo->Inhibit_time;    
 		setInhibit_time ;} 
 };
 
-inline void start_Event_timer(struct PDO_Object *pdo){
+void start_Event_timer(struct PDO_Object *pdo){
 	
 	if(pdo->counter_Event_timer && *pdo->Event_timer){    
 		*pdo->counter_Event_timer = *pdo->Event_timer;    
@@ -1606,7 +1607,7 @@ void rxSDO_message_processing(uint8_t code,struct _CanOpen* node){// client -> s
 
 void NODE_message_processing(struct _CanOpen* node){
 
-    if(node->receiving_message(node->current_msg) == 0) return;
+    if((node->receiving_message(node->current_msg)) == 0) return;
     uint8_t fun_code = ((node->current_msg->can_frame.id)&0x780) >> 7;
     
     switch(fun_code){
@@ -1655,7 +1656,7 @@ void NODE_processing_pdo_objects(struct _CanOpen* node){
    
 };
 
-inline void NODE_init_objects_xCanOpen(struct _CanOpen* node){
+void NODE_init_objects_xCanOpen(struct _CanOpen* node){
 
    *node->mode = BOOT;
    struct PDO_Object* pdo;

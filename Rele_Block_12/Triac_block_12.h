@@ -15,22 +15,10 @@ extern "C" {
 #endif
  
 /* DS-401*/  
-	
-	
-	
-static struct _CanOpen Triac_rele; 
 
 // pic18 256 byte ram
 
-struct ram_objects_to_eeprom{
-
-// default registr 16 byte	
-	
- uint32_t N1000_Device_Type;
- uint32_t N1008_Device_name;
- uint32_t N1009_Hard_version;
- uint32_t N100A_Soft_version;
- 
+struct RAM_to_EEPROM{
  
  // rxPDO1 4+1+2+2+1+4x8 = 42 byte
  
@@ -53,43 +41,34 @@ struct ram_objects_to_eeprom{
  
  
  
- // 6000 2 byte
+ // 6000  2 byte
  
  uint8_t polary_input[1];  //6002h
  uint8_t filter_input[1];  //6003h
  
- // 6200  4 byte
+ // 6200  6 byte
  
  uint8_t port_output[2] ;  //6200h
  uint8_t polary_output[2]; //6202h
  uint8_t filter_output[2]; //6203h
  
- 
- 
- 
- 
- 
- 
- 
- // 106 byte 
+
  };
 
-
-
-    
-
-uint32_t
+static struct _CanOpen  Triac_rele;
+struct RAM_to_EEPROM    Triac_rele_ram;
+static struct OD_Object OD_Triac_rele[]; // OD_table    
 
 /* 401d (0x191) | 16th Bit Digital input | 17th Bit Digital output */
 
+const uint32_t
+
  N1000_Device_Type = 30191,
- N1008_Device_name = 0,
+ N1008_Device_name =  0,
  N1009_Hard_version = 0,
  N100A_Soft_version = 0;
 
 
- 
-    
  uint8_t  
         
  // 0 - port B, 1 - port C
@@ -116,110 +95,50 @@ uint32_t
  N6003_input = { .sub_index = 1, .array = filter_input};        
          
 
-// Error
+/*------------------- Error -----------------------*/
 
 uint8_t  N1001_Error_register = 0;   
 uint32_t data_error[5];
 struct 
 one_type_array N1003_Error = { .sub_index = 5, .array = data_error };
-
-
-
-
-
-
-// OD_table
-static struct OD_Object OD_Triac_rele[];
-
-
-
-/******************* PDO objects ***************
-struct PDO_Object{
-    
-    uint8_t*	cond;
-    uint32_t*	cob_id ;
-    
-    uint8_t*	sub_index ;
-    uint8_t*	Transmission_type;
-    uint8_t*	Sync_start_value;
-    uint8_t*    counter_sync;
-    
-    uint16_t*	Inhibit_time; 	// n x 100ms
-    uint16_t*	counter_Inhibit_time; // 0 <-- (Inhibit_time --)
-       
-    uint16_t*	Event_timer;	// n x 100ms
-    uint16_t*	counter_Event_timer;  // 0 <-- (Event_timer--)
-    
-    // mapping
-    
-    uint8_t*	sub_index_map;
-    uint32_t*   map;	      // massiv[MAX_MAP_DATA]
-    uint8_t**	map_addr_obj; // massiv[MAX_MAP_DATA]
-    uint8_t*    n_byte_pdo_map;
-
-    struct
-    OD_Object*	OD_Object_list; // 
-    
-    // Buffer
-    
-    uint8_t*    buffer;
-
-    // function
-    
-    void   (*init_pdo)(struct PDO_Object* pdo);
-    void   (*check_map)(struct PDO_Object* pdo);
-    void   (*process_rxpdo)(struct PDO_Object *pdo);
-    void   (*process_txpdo)(struct PDO_Object *pdo);
-     
-};  
- **/ 
-
  
-/********      rxPDO1           *********/
-
+/*------------------ rxPDO1 -----------------------*/
 // ram
 
 uint8_t rxpdo1_cond = 0x20,
 	rxpdo1_subindex = 0x05,
-	rxpdo1_Transmission = 0xFF,
-	rxpdo1_counter_sync = 0x0,
-	rxpdo1_buffer[MAX_MAP_DATA]={}, 
-	rxpdo1_sub_index_map = 0,
+	rxpdo1_counter_sync = 0,
 	rxpdo1_n_byte_pdo_map = 0,
+	rxpdo1_buffer[MAX_MAP_DATA]={},
        *rxpdo_map_addr_obj[MAX_MAP_DATA] = {};
 	
-uint16_t rxpdo1_inhibit_time =0,
-	 rxpdo1_counter_inhibit_time = 0,
-	 rxpdo1_event_timer = 0,
+uint16_t rxpdo1_counter_inhibit_time = 0,
 	 rxpdo1_counter_event_timer = 0;
 	
-uint32_t rxpdo1_cob_id = rxPDO1,
-	 rxpdo1_map_data[MAX_MAP_DATA]={};
 
 
 // rom
-
-struct PDO_Object rx_pdo_0x200={
+static struct PDO_Object rx_pdo_0x200={
 
     .cond = &rxpdo1_cond,
-    .cob_id = &rxpdo1_cob_id,
+    .cob_id = &Triac_rele_ram.rxpdo1_cob_id,
     
     .sub_index = &rxpdo1_subindex,
-    .Transmission_type = &rxpdo1_Transmission,
+    .Transmission_type = &Triac_rele_ram.rxpdo1_Transmission,
     .Sync_start_value = NULL,
     .counter_sync = &rxpdo1_counter_sync,
     
-    .Inhibit_time = &rxpdo1_inhibit_time, 	// n x 100ms
+    .Inhibit_time = &Triac_rele_ram.rxpdo1_inhibit_time, 	// n x 100ms
     .counter_Inhibit_time = &rxpdo1_counter_inhibit_time, // 0 <-- (Inhibit_time --)
        
-    .Event_timer = &rxpdo1_event_timer,	// n x 100ms
+    .Event_timer = &Triac_rele_ram.rxpdo1_event_timer,	// n x 100ms
     .counter_Event_timer= &rxpdo1_counter_event_timer,  // 0 <-- (Event_timer--)
     
     // mapping
     
-    .sub_index_map = &rxpdo1_sub_index_map,
-    .map = rxpdo1_map_data,	      // massiv[MAX_MAP_DATA]
-    .map_addr_obj = rxpdo_map_addr_obj, // massiv[MAX_MAP_DATA]
+    .sub_index_map = &Triac_rele_ram.rxpdo1_sub_index_map,
+    .map = Triac_rele_ram.rxpdo1_map_data,	      // massiv[MAX_MAP_DATA]
+    .map_addr_obj = rxpdo_map_addr_obj,		      // massiv[MAX_MAP_DATA]
     .n_byte_pdo_map = &rxpdo1_n_byte_pdo_map,
 
     .OD_Object_list = OD_Triac_rele, // 
@@ -242,20 +161,13 @@ struct PDO_Object rx_pdo_0x200={
 
 uint8_t txpdo1_cond = 0x60, // setInit,setTx
 	txpdo1_subindex = 0x05,
-	txpdo1_Transmission = 0xFF,
 	txpdo1_counter_sync = 0x0,
 	txpdo1_buffer[MAX_MAP_DATA]={},
 	txpdo1_n_byte_pdo_map = 0, 
-	txpdo1_sub_index_map = 0,
 	*txpdo_map_addr_obj[MAX_MAP_DATA] = {};
 	
-uint16_t txpdo1_inhibit_time =0,
-	 txpdo1_counter_inhibit_time = 0,
-	 txpdo1_event_timer = 0,
+uint16_t txpdo1_counter_inhibit_time = 0,
 	 txpdo1_counter_event_timer = 0;
-	
-uint32_t txpdo1_cob_id = rxPDO1,
-	 txpdo1_map_data[MAX_MAP_DATA]={};
 
 
 // rom
@@ -263,23 +175,23 @@ uint32_t txpdo1_cob_id = rxPDO1,
 struct PDO_Object tx_pdo_0x180={
 
     .cond = &txpdo1_cond,
-    .cob_id = &txpdo1_cob_id,
+    .cob_id = &Triac_rele_ram.txpdo1_cob_id,
     
     .sub_index = &txpdo1_subindex,
-    .Transmission_type = &txpdo1_Transmission,
+    .Transmission_type = &Triac_rele_ram.txpdo1_Transmission,
     .Sync_start_value = NULL,
     .counter_sync = &txpdo1_counter_sync,
     
-    .Inhibit_time = &txpdo1_inhibit_time, 	// n x 100ms
+    .Inhibit_time = &Triac_rele_ram.txpdo1_inhibit_time, 	// n x 100ms
     .counter_Inhibit_time = &txpdo1_counter_inhibit_time, // 0 <-- (Inhibit_time --)
        
-    .Event_timer = &txpdo1_event_timer,	// n x 100ms
+    .Event_timer = &Triac_rele_ram.txpdo1_event_timer,	// n x 100ms
     .counter_Event_timer= &txpdo1_counter_event_timer,  // 0 <-- (Event_timer--)
     
     // mapping
     
-    .sub_index_map = &txpdo1_sub_index_map,
-    .map = txpdo1_map_data,	      // massiv[MAX_MAP_DATA]
+    .sub_index_map = &Triac_rele_ram.txpdo1_sub_index_map,
+    .map = Triac_rele_ram.txpdo1_map_data,	      // massiv[MAX_MAP_DATA]
     .map_addr_obj = txpdo_map_addr_obj, // massiv[MAX_MAP_DATA]
     .n_byte_pdo_map = &txpdo1_n_byte_pdo_map,
 
@@ -343,12 +255,7 @@ struct _CanOpen{
 
 
 
- struct PDO_Object* 
- xPDO[8] ={
-	 &tx_pdo_0x180,
-	 &rx_pdo_0x200,
-	 NULL,
- };
+ struct PDO_Object* xPDO[8] ={&tx_pdo_0x180, &rx_pdo_0x200,NULL};
  
  uint8_t node_id = 0,
 	 node_mode = BOOT;
@@ -363,8 +270,6 @@ struct _CanOpen Triac_rele = {
 	.mode = &node_mode,
 	.current_msg = &node_msg,
 	.pdo = xPDO,
-	
-
 
 };    
  
