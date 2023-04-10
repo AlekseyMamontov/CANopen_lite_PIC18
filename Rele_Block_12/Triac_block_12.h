@@ -388,8 +388,16 @@ void GPIO_processing(){
 
 /******** irq *********************************/
 
-void irq_default(void){};
+void irq_Triac_rele_100us(void){
 
+   if(rxpdo1_counter_inhibit_time)rxpdo1_counter_inhibit_time --;
+   if(rxpdo1_counter_event_timer) rxpdo1_counter_event_timer--;
+   if(txpdo1_counter_inhibit_time)txpdo1_counter_inhibit_time --;
+   if(txpdo1_counter_event_timer) txpdo1_counter_event_timer--;
+   
+};
+
+void irq_default(){};
 
 /********   *modification can init ************/
 
