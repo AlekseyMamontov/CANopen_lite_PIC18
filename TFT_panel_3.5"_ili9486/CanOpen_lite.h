@@ -82,13 +82,48 @@ the SAME basic data type e.g. array of UNSIGNED16 etc. Sub-index 0 is
 of UNSIGNED8 and therefore not part of the ARRAY data*/
 #define OD_ARRAY 8
 
+/* code sub_index_FF*/ 
+    
+const uint32_t subindex_FF[]={
+
+#define _OD_NULL 0
+0x00000000,
+#define UINT8_OD_VAR 1
+0x00050007,
+#define UINT16_OD_VAR 2
+0x00060007,
+#define UINT24_OD_VAR 3
+0x00160007,
+#define UINT32_OD_VAR 4
+0x00070007,
+#define UINT8_OD_ARRAY 5
+0x00050008,
+#define UINT16_OD_ARRAY 6
+0x00060008,
+#define UINT24_OD_ARRAY 7
+0x00160008,
+#define UINT32_OD_ARRAY 8
+0x00070008,
+#define PDO_COMM_OD_DEFSTRUCT 9
+0x00200006,
+#define PDO_MAPPING_OD_DEFSTRUCT 10
+0x00210006,
+#define SDO_PARAMETER_OD_DEFSTRUCT 11
+0x00220006,
+#define IDENTITY_DEFSTRUCT 12
+0x00230006,
+//...pic 256 byte block ram (4x64)..
+};
+    
+    
+    
 /*Attribute*/	
 
 #define _CONST	0
-#define RO      0b001
-#define WO      0b010
-#define RW      0b011
-#define NO_MAP  0b10000000
+#define RO      0b0001
+#define WO      0b0010
+#define RW      0b0011
+#define NO_MAP  0b0100
 
 
 /* structure */
@@ -102,7 +137,7 @@ struct Data_Object{
     uint8_t     attribute;
     uint8_t     nbit;
     uint8_t     sub_index;
-    uint32_t    sub_index_ff;
+    uint8_t     sub_index_ff;
     void*       data_object;
     void*       rw_object;
     
@@ -208,7 +243,7 @@ due to the fact that the XC8 is buggy */
 #define checkRxTx	*(pdo->cond) & 0x40
 
 #define setLock		*(pdo->cond) |=0x80
-#define clrLock         *(pdo->cond) &=0x7F
+#define clrLock		*(pdo->cond) &=0x7F
 #define checkLock	*(pdo->cond) & 0x80
 
 
@@ -394,13 +429,14 @@ const uint32_t error_msg[]={
 
 struct OD_Object* OD_search_index(uint16_t index, struct OD_Object* tab){   
     while (tab->index < index){tab++;} 
-    return tab = tab->index == index?tab:NULL;};
+    tab = tab->index == index?tab:NULL;
+    return tab;}
 
-inline struct OD_Object* 
+struct OD_Object* 
 	OD_search_msg_index(CanOpen_Msg *msg, struct OD_Object* tab){
 return  OD_search_index((msg->frame_sdo.index),tab);}
 
-inline struct OD_Object* 
+struct OD_Object* 
 	OD_search_map_index(CanOpen_Msg *msg, struct OD_Object* tab){
 	uint16_t index = msg->frame_sdo.data3;
 	index <<= 8;
@@ -448,7 +484,7 @@ uint8_t* copy_wdata_answer (uint8_t* wdata, uint8_t* rdata, uint8_t nbit){
 };	
 	
 
-inline void copy_xPDO(uint8_t* wdata,uint8_t* rdata,uint8_t dlc){
+void copy_xPDO(uint8_t* wdata,uint8_t* rdata,uint8_t dlc){
     
     for(uint8_t i= 0; i< MAX_MAP_DATA ;i++){
         *(wdata+i)= i < dlc?*(rdata+i):0;}
@@ -594,14 +630,14 @@ void copy_txPDO_array_to_message(CanOpen_Msg* msg,struct PDO_Object* pdo){
     
 };
 
-inline void start_Inhibit_time(struct PDO_Object *pdo){
+void start_Inhibit_time(struct PDO_Object *pdo){
 	
 	if(pdo->counter_Inhibit_time && *pdo->Inhibit_time){	    	
 		*pdo->counter_Inhibit_time = *pdo->Inhibit_time;    
 		setInhibit_time ;} 
 };
 
-inline void start_Event_timer(struct PDO_Object *pdo){
+void start_Event_timer(struct PDO_Object *pdo){
 	
 	if(pdo->counter_Event_timer && *pdo->Event_timer){    
 		*pdo->counter_Event_timer = *pdo->Event_timer;    
@@ -857,10 +893,11 @@ void single_object(struct Data_Object *obj){
                     switch(msg->frame_sdo.subindex){    
                         case 0: rdata =(uint8_t*) obj->data_object;
 				break;              
-                        case 0xFF:rdata = (uint8_t*)&(obj->sub_index_ff);
-				  nbit = 0x20;
-				  msg->frame_sdo.cmd = RESPONSE_4b;
-				  msg->frame_sdo.dlc = 8;
+                        case 0xFF:
+                            rdata = (uint8_t*)&subindex_FF[obj->sub_index_ff];
+                            nbit = 0x20;
+                            msg->frame_sdo.cmd = RESPONSE_4b;
+                            msg->frame_sdo.dlc = 8;
 				break;         
                         default:error = ERROR_SUB_INDEX;break;}
 		    };
@@ -897,7 +934,11 @@ void single_object(struct Data_Object *obj){
           * for fast processing mapping*/ 
 	  
        case MAP_info:
-		
+		  /*
+           if(obj->sub_index == 0xFF){
+           obj->rw_object = (uint8_t*)&subindex_FF[obj->sub_index_ff];
+           obj->nbit = 0x20;obj->attribute = RO;};
+           */
             obj->rw_object = obj->sub_index?NULL: obj->data_object;
 	    
 	  break;
@@ -940,9 +981,11 @@ void one_type_array_object(struct Data_Object *obj){
 			       msg->frame_sdo.cmd = RESPONSE_1b;
 			       msg->frame_sdo.dlc = 5;
 			       break;              
-                        case 0xFF:rdata = (uint8_t*)&(obj->sub_index_ff);nbit = 0x20;
-				  msg->frame_sdo.cmd = RESPONSE_4b;
-			          msg->frame_sdo.dlc = 8;
+                        case 0xFF:
+                            rdata = (uint8_t*)&subindex_FF[obj->sub_index_ff];
+                            nbit = 0x20;
+                            msg->frame_sdo.cmd = RESPONSE_4b;
+                            msg->frame_sdo.dlc = 8;
 			       break;         
                         default: if(array->sub_index < (msg->frame_sdo.subindex))
 							error = ERROR_SUB_INDEX;break;
@@ -991,14 +1034,12 @@ void one_type_array_object(struct Data_Object *obj){
 	   if(!obj->data_object){obj->rw_object= NULL;return;}
 	     
 	      switch(obj->sub_index){
-	          case 0: rdata = &array->sub_index;
-			  nbit = 0x08;
-			  obj->attribute = RO;
-		          break;
-                  case 0xFF: rdata = (uint8_t*)&(obj->sub_index_ff); 
-			     nbit = 0x20;
-			     obj->attribute = RO;
-			     break;
+	          case 0: rdata = &array->sub_index;nbit = 0x08;obj->attribute = RO;
+		             break;
+              /*    case 0xFF: rdata = (uint8_t*)&subindex_FF[obj->sub_index_ff]; 
+                             nbit = 0x20;
+                             obj->attribute = RO;
+			     break;               */
 	          default: if(obj->sub_index > array->sub_index){rdata=NULL;nbit=0;break;}
 		           rdata = (uint8_t*)array->array;
 		           nbit = obj->nbit;
@@ -1019,88 +1060,88 @@ void one_type_array_object(struct Data_Object *obj){
 
 void ro_object_1byte(struct Data_Object *obj){
 	if(!obj)return;
-	obj->nbit = 0x08;obj->attribute=RO;obj->sub_index_ff = (UINT8<<8)|OD_VAR;
+	obj->nbit = 0x08;obj->attribute=RO;obj->sub_index_ff = UINT8_OD_VAR;
 	single_object(obj);}
 
 void rw_object_1byte(struct Data_Object *obj){
 	if(!obj)return;
-	obj->nbit = 0x08;obj->attribute=RW;obj->sub_index_ff = (UINT8<<8)|OD_VAR;
+	obj->nbit = 0x08;obj->attribute=RW;obj->sub_index_ff = UINT8_OD_VAR;
 	single_object(obj);}
 
 void ro_array_1byte(struct Data_Object *obj){
 	if(!obj)return;
-	obj->nbit = 0x08;obj->attribute=RO;obj->sub_index_ff = (UINT8<<8)|OD_ARRAY;	
+	obj->nbit = 0x08;obj->attribute=RO;obj->sub_index_ff = UINT8_OD_ARRAY;	
 	one_type_array_object(obj);}
 
 void rw_array_1byte(struct Data_Object *obj){
 	if(!obj)return;
-	obj->nbit = 0x08;obj->attribute=RW;obj->sub_index_ff = (UINT8<<8)|OD_ARRAY;	
+	obj->nbit = 0x08;obj->attribute=RW;obj->sub_index_ff = UINT8_OD_ARRAY;	
 	one_type_array_object(obj);}
 
 /* 2 byte object*/
 
 void ro_object_2byte(struct Data_Object *obj){
 	if(!obj)return;
-	obj->nbit = 0x10;obj->attribute=RO;obj->sub_index_ff = (UINT16<<8)|OD_VAR;
+	obj->nbit = 0x10;obj->attribute=RO;obj->sub_index_ff = UINT16_OD_VAR;
 	single_object(obj);}
 
 void rw_object_2byte(struct Data_Object *obj){
 	if(!obj)return;
-	obj->nbit = 0x10;obj->attribute=RW;obj->sub_index_ff = (UINT16<<8)|OD_VAR;
+	obj->nbit = 0x10;obj->attribute=RW;obj->sub_index_ff = UINT16_OD_VAR;
 	single_object(obj);}
 
 void ro_array_2byte(struct Data_Object *obj){
 	if(!obj)return;
-	obj->nbit = 0x10;obj->attribute=RO;obj->sub_index_ff = (UINT16<<8)|OD_ARRAY;	
+	obj->nbit = 0x10;obj->attribute=RO;obj->sub_index_ff = UINT16_OD_ARRAY;	
 	one_type_array_object(obj);}
 
 void rw_array_2byte(struct Data_Object *obj){
 	if(!obj)return;
-	obj->nbit = 0x10;obj->attribute=RW;obj->sub_index_ff = (UINT16<<8)|OD_ARRAY;	
+	obj->nbit = 0x10;obj->attribute=RW;obj->sub_index_ff = UINT16_OD_ARRAY;	
 	one_type_array_object(obj);}
 
 /* 3 byte object*/
 
 void ro_object_3byte(struct Data_Object *obj){
 	if(!obj)return;
-	obj->nbit = 0x18;obj->attribute=RO;obj->sub_index_ff = (UINT24<<8)|OD_VAR;
+	obj->nbit = 0x18;obj->attribute=RO;obj->sub_index_ff = UINT24_OD_VAR;
 	single_object(obj);}
 
 void rw_object_3byte(struct Data_Object *obj){
 	if(!obj)return;
-	obj->nbit = 0x18;obj->attribute=RW;obj->sub_index_ff = (UINT24<<8)|OD_VAR;
+	obj->nbit = 0x18;obj->attribute=RW;obj->sub_index_ff = UINT24_OD_VAR;
 	single_object(obj);}
 
 void ro_array_3byte(struct Data_Object *obj){
 	if(!obj)return;
-	obj->nbit = 0x18;obj->attribute=RO;obj->sub_index_ff = (UINT24<<8)|OD_ARRAY;	
+	obj->nbit = 0x18;obj->attribute=RO;obj->sub_index_ff = UINT24_OD_ARRAY;	
 	one_type_array_object(obj);}
 
 void rw_array_3byte(struct Data_Object *obj){
 	if(!obj)return;
-	obj->nbit = 0x18;obj->attribute=RW;obj->sub_index_ff = (UINT24<<8)|OD_ARRAY;	
+	obj->nbit = 0x18;obj->attribute=RW;obj->sub_index_ff = UINT24_OD_ARRAY;	
 	one_type_array_object(obj);}
 
 /* 4 byte object*/
 
 void ro_object_4byte(struct Data_Object *obj){
 	if(!obj)return;
-	obj->nbit = 0x20;obj->attribute=RO;obj->sub_index_ff = (UINT32<<8)|OD_VAR;
+	obj->nbit = 0x20;obj->attribute=RO;obj->sub_index_ff = UINT32_OD_VAR;
 	single_object(obj);}
 
 void rw_object_4byte(struct Data_Object *obj){
 	if(!obj)return;
-	obj->nbit = 0x20;obj->attribute=RW;obj->sub_index_ff = (UINT32<<8)|OD_VAR;
+	obj->nbit = 0x20;obj->attribute=RW;obj->sub_index_ff = UINT32_OD_VAR;
 	single_object(obj);}
 
 void ro_array_4byte(struct Data_Object *obj){
 	if(!obj)return;
-	obj->nbit = 0x20;obj->attribute=RO;obj->sub_index_ff = (UINT32<<8)|OD_ARRAY;	
+	obj->nbit = 0x20;obj->attribute=RO;obj->sub_index_ff = UINT32_OD_ARRAY;	
 	one_type_array_object(obj);}
 
 void rw_array_4byte(struct Data_Object *obj){
 	if(!obj)return;
-	obj->nbit = 0x20;obj->attribute=RW;obj->sub_index_ff = (UINT32<<8)|OD_ARRAY;	
+	obj->nbit = 0x20;obj->attribute=RW;obj->sub_index_ff = UINT32_OD_ARRAY;	
 	one_type_array_object(obj);}
 
 
@@ -1139,7 +1180,7 @@ void pdo_object(struct Data_Object *obj){
                 case 2:rdata = (uint8_t*)pdo->Transmission_type; nbit = 0x08;break;
                 case 3:rdata = (uint8_t*)pdo->Inhibit_time; nbit = 0x10;break;                    
                 case 5:rdata = (uint8_t*)pdo->Event_timer; nbit = 0x10;break;
-                case SUB_INDEX_FF:rdata =(uint8_t*)&obj->sub_index_ff;break;
+                case 0xFF:rdata = (uint8_t*)&subindex_FF[obj->sub_index_ff];break;
                 default: error = ERROR_SUB_INDEX;break;}}    
           }else error = ERROR_NO_READ;
 	    
@@ -1264,6 +1305,10 @@ void pdo_object(struct Data_Object *obj){
                 case 2: obj->rw_object = pdo->Transmission_type;nbit = 0x08;break;
                 case 3: obj->rw_object = pdo->Inhibit_time;nbit = 0x10;break;       
                 case 5: obj->rw_object = pdo->Event_timer;nbit = 0x10;break;
+                /*
+                case 0xff:obj->rw_object = &subindex_FF[obj->sub_index_ff]; 
+                          nbit = 0x20;obj->attribute = RO;break; */
+                
                 default:obj->rw_object = NULL;nbit = 0x00;break;}
            obj->nbit = nbit;
            break;
@@ -1273,8 +1318,8 @@ void pdo_object(struct Data_Object *obj){
 
 void ro_pdo_object(struct Data_Object *obj){
 	
-     	if(!obj)return;
-	obj->nbit = 0x20;obj->attribute=RO;obj->sub_index_ff = (PDO_COMM<<8)|OD_DEFSTRUCT;
+    if(!obj)return;
+	obj->nbit = 0x20;obj->attribute=RO;obj->sub_index_ff = PDO_COMM_OD_DEFSTRUCT;
 	pdo_object(obj);
 }
 
@@ -1282,7 +1327,7 @@ void ro_pdo_object(struct Data_Object *obj){
 void rw_pdo_object(struct Data_Object *obj){
 	
 	if(!obj)return;
-	obj->nbit = 0x20;obj->attribute=RW;obj->sub_index_ff = (PDO_COMM<<8)|OD_DEFSTRUCT;
+	obj->nbit = 0x20;obj->attribute=RW;obj->sub_index_ff = PDO_COMM_OD_DEFSTRUCT;
 	pdo_object(obj);
 }
 
@@ -1317,9 +1362,9 @@ void map_object(struct Data_Object *obj){
 		   
               switch(msg->frame_sdo.subindex){
                 case 0: rdata= pdo->sub_index_map;nbit=0x08;break;
-                case SUB_INDEX_FF:rdata = (uint8_t*)&obj->sub_index_ff;break;       
+                case 0xFF:rdata=(uint8_t*)&subindex_FF[obj->sub_index_ff];;break;       
                 default: rdata = (uint8_t*)pdo->map +((msg->frame_sdo.subindex)-1);
-                         nbit=0x20;break;}
+                         break;}
 	  }        
        }else error = ERROR_NO_READ;
 	
@@ -1388,14 +1433,14 @@ void map_object(struct Data_Object *obj){
 void ro_map_object(struct Data_Object *obj){
 	
 	if(!obj)return;
-	obj->attribute=RO;obj->sub_index_ff = (PDO_MAPPING<<8)|OD_DEFSTRUCT;
+	obj->attribute=RO;obj->sub_index_ff = PDO_MAPPING_OD_DEFSTRUCT;
 	map_object(obj);
 }
 
 void rw_map_object(struct Data_Object *obj){
 	
 	if(!obj)return;
-	obj->attribute=RW;obj->sub_index_ff = (PDO_MAPPING<<8)|OD_DEFSTRUCT;
+	obj->attribute=RW;obj->sub_index_ff = PDO_MAPPING_OD_DEFSTRUCT;
 	map_object(obj);
 }
 
@@ -1409,13 +1454,13 @@ void sdo_object(struct Data_Object *obj){
 void ro_sdo_object(struct Data_Object *obj){
 	
 	if(!obj)return;
-	obj->attribute=RO|NO_MAP;obj->sub_index_ff = (SDO_PARAMETER<<8)|OD_DEFSTRUCT;
+	obj->attribute=RO|NO_MAP;obj->sub_index_ff = SDO_PARAMETER_OD_DEFSTRUCT;
         sdo_object(obj);}
 
 void rw_sdo_object(struct Data_Object *obj){
 	
 	if(!obj)return;
-	obj->attribute=RW|NO_MAP;obj->sub_index_ff = (SDO_PARAMETER<<8)|OD_DEFSTRUCT;
+	obj->attribute=RW|NO_MAP;obj->sub_index_ff = SDO_PARAMETER_OD_DEFSTRUCT;
         sdo_object(obj);
 
 ;}
@@ -1562,7 +1607,7 @@ void rxSDO_message_processing(uint8_t code,struct _CanOpen* node){// client -> s
 
 void NODE_message_processing(struct _CanOpen* node){
 
-    if(node->receiving_message(node->current_msg) == 0) return;
+    if((node->receiving_message(node->current_msg)) == 0) return;
     uint8_t fun_code = ((node->current_msg->can_frame.id)&0x780) >> 7;
     
     switch(fun_code){
@@ -1611,7 +1656,7 @@ void NODE_processing_pdo_objects(struct _CanOpen* node){
    
 };
 
-inline void NODE_init_objects_xCanOpen(struct _CanOpen* node){
+void NODE_init_objects_xCanOpen(struct _CanOpen* node){
 
    *node->mode = BOOT;
    struct PDO_Object* pdo;
