@@ -29,23 +29,24 @@ void main(void)
     Triac_rele_ram.txpdo1_event_timer = 0;
     Triac_rele_ram.txpdo1_inhibit_time = 0;
     
-    TMR2_SetInterruptHandler(irq_Triac_rele_100us);
+    
     
 /* end test block*/    
     
-  
-    //pdo_objects_add_id(&Triac_rele); //node.id + pdo[].cobid
     
-    
+    INTERRUPT_Initialize();
+    PIN_MANAGER_Initialize();
+    OSCILLATOR_Initialize();
     CANOPEN_ECAN_Initialize(*Triac_rele.id);
+    TMR2_Initialize();
     
-    // Enable the Global Interrupts
     
+     // Enable the Global Interrupts
+    
+    TMR2_SetInterruptHandler(irq_Triac_rele_100us);
     INTERRUPT_GlobalInterruptEnable();
+    TMR2_StartTimer();
     
-    // Enable the Peripheral Interrupts
-    //INTERRUPT_PeripheralInterruptEnable();
-   
     // -------------- boot init ----------------
     
      msg->frame.idType = dSTANDARD_CAN_MSG_ID_2_0B;
